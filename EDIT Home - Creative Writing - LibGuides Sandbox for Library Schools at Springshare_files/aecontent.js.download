@@ -1,0 +1,1099 @@
+// aecontent.js - FOR USE ONLY WITH aecontent.php
+//==============================================================================================
+// ContentConfig object for use mainly in making PHP variables available to JavaScript functions.
+//==============================================================================================
+function ContentConfig() {
+	this.pid = 0;
+	this.sid = 0;
+	this.iid = 0;
+	this.la_iid = 0;
+	this.gid = 0;
+	this.pubword = '';
+	this.myboxshape = '';
+	this.hitsource = 0;
+	this.bv = (/MSIE (\d+\.\d+);/.test(navigator.userAgent) ? "ie" : "ff" );		
+}
+//==============================================================================================
+//	Instantiate global config object.
+//	aecontent_config will then be referenced in content.php, where the properties will be set. 
+//==============================================================================================
+var aecontent_config = new ContentConfig();
+//==============================================================================================
+dojo.require("dojo.io.iframe");
+dojo.provide("ComboBoxReadStore");
+dojo.declare("ComboBoxReadStore", dojox.data.QueryReadStore, {
+	fetch:function(request) {
+		request.serverQuery = {q:request.query.name,iid:aecontent_config.iid};
+		return this.inherited("fetch", arguments);
+	}
+});
+dojo.provide("ComboBoxAskStore");
+dojo.declare("ComboBoxAskStore", dojox.data.QueryReadStore, {
+	fetch:function(request) {
+		request.serverQuery = {q:request.query.name,iid:aecontent_config.la_iid};
+		return this.inherited("fetch", arguments);
+	}
+});
+
+function showLinkInfo(cb_item) {
+	if ( cb_item ) {
+		// Get link id from Dojo combo box object.
+		var linkid = cb_item.i.id;
+		
+		if ( linkid != 0 ) {
+			dojo.xhrGet ({
+				url: 'process_misc.php?m=linfo&lid=' + linkid,
+				load: function (data) {
+					document.getElementById('linkinformation').innerHTML = data;
+					document.getElementById('sbb').style.display='block';
+					document.reuselinkform.lid.value = linkid;
+				 },
+				error: function (error) { alert("Error: " + error);},
+				preventCache: true
+			});
+		} else {
+			// Clear the "no results" item text from the field.
+			var cb_elt = dijit.byId('cb');
+			
+			cb_elt.reset();
+			
+			// Display no results message and make sure any previous link info is not being displayed.
+			document.getElementById('linkinformation').innerHTML = 'There were no results for your search. Please try again.';
+			document.getElementById('sbb').style.display = 'none';
+		}
+	} else {
+		document.getElementById('linkinformation').innerHTML = 'Please select an item from the results list.';
+		document.getElementById('sbb').style.display = 'none';
+	}
+}
+function showBookInfo(cb_item) {
+	if ( cb_item ) {
+		// Get link id from Dojo combo box object.
+		var bookid = cb_item.i.id;
+		
+		if ( bookid != 0 ) {
+			dojo.xhrGet ({
+				url: 'process_misc.php?m=binfo&lid=' + bookid,
+				load: function (data) {
+					document.getElementById('bookinformation').innerHTML = data;
+					document.getElementById('sbb').style.display='block';
+					document.reusebookform.lid.value = bookid;
+				 },
+				error: function (error) { alert("Error: " + error);},
+				preventCache: true
+			});
+		} else {
+			// Clear the "no results" item text from the field.
+			var cb_elt = dijit.byId('cb');
+			
+			cb_elt.reset();
+			
+			// Display no results message and make sure any previous link info is not being displayed.
+			document.getElementById('bookinformation').innerHTML = 'There were no results for your search. Please try again.';
+			document.getElementById('sbb').style.display = 'none';
+		}
+	} else {
+		document.getElementById('bookinformation').innerHTML = 'Please select an item from the results list.';
+		document.getElementById('sbb').style.display = 'none';
+	}
+}
+function updateSearch(config, m) {
+	var elt = dijit.byId('cb');
+
+	// Update store URL with new guide id.
+	elt.store.url = '/process_combobox.php?mode=' + m + '&pid=' + config.guide_id;
+
+	// Show drop-down if the search value is non-empty.
+	if ( elt.focusNode.value.replace(/([\\\*\?])/g,"\\$1") != '' ) {
+		// Perform search on new guide selection.
+		elt._startSearchFromInput();
+	}
+}
+function showLinkWorking(combo_obj) {
+	document.getElementById('linkinformation').innerHTML = '<img alt="Loading" src="http://lgimages.s3.amazonaws.com/loading_dots.gif" align="top">';
+	document.getElementById('sbb').style.display = 'none';
+}
+function showBookWorking(combo_obj) {
+	document.getElementById('bookinformation').innerHTML = '<img alt="Loading" src="http://lgimages.s3.amazonaws.com/loading_dots.gif" align="top">';
+	document.getElementById('sbb').style.display = 'none';
+}
+function showVideoInfo(cb_item) {
+	if ( cb_item ) {
+		// Get link id from Dojo combo box object.
+		var linkid = cb_item.i.id;
+		
+		if ( linkid != 0 ) {
+			dojo.xhrGet ({
+				url: 'process_misc.php?m=vinfo&lid=' + linkid,
+				load: function (data) {	document.editvideoform.embedurl.value=data; },
+				error: function (error) { alert("Error: " + error);},
+				preventCache: true
+			});	
+		} else {
+			// Clear the "no results" item text from the field.
+			var cb_elt = dijit.byId('cb');
+			
+			cb_elt.reset();
+		}
+	}
+}
+
+function showRSSInfo(cb_item) {
+	if ( cb_item ) {
+		// Get link id from Dojo combo box object.
+		var linkid = cb_item.i.id;
+		
+		if ( linkid != 0 ) {
+			dojo.xhrGet ({
+				url: 'process_misc.php?m=rssinfo&lid=' + linkid,
+				load: function (data) {	document.addfeedform.feedurl.value=data; },
+				error: function (error) { alert("Error: " + error);},
+				preventCache: true
+			});
+		} else { 
+			// Clear the "no results" item text from the field.
+			var cb_elt = dijit.byId('cb');
+			
+			cb_elt.reset();
+		}
+	} 
+}
+
+function showPodInfo(cb_item) {
+	if ( cb_item ) {
+		// Get link id from Dojo combo box object.
+		var linkid = cb_item.i.id;
+		
+		if ( linkid != 0 ) {
+			dojo.xhrGet ({
+				url: 'process_misc.php?m=podinfo&lid=' + linkid,
+				load: function (data) {	
+					document.addfeedform.feedurl.value=data;
+				},
+				error: function (error) { alert("Error: " + error);},
+				preventCache: true
+			});
+		} else { 
+			// Clear the "no results" item text from the field.
+			var cb_elt = dijit.byId('cb');
+			
+			cb_elt.reset();
+		}
+	} 
+}
+
+function showDocInfo(cb_item) {
+	if ( cb_item ) {
+		// Get link id from Dojo combo box object.
+		var linkid = cb_item.i.id;
+		
+		if ( linkid != 0 ) {
+			dojo.xhrGet ({
+				url: 'process_misc.php?m=docinfo&lid=' + linkid,
+				load: function (data) {
+					document.getElementById('docinformation').innerHTML = data;
+					document.getElementById('sbb').style.display='block';
+					document.reusedocform.fid.value = linkid;
+				 },
+				error: function (error) { alert("Error: " + error);},
+				preventCache: true
+			});
+		} else { 
+			// Clear the "no results" item text from the field.
+			var cb_elt = dijit.byId('cb');
+			
+			cb_elt.reset();
+		}
+	} 
+}
+
+function showEreserveInfo(cb_item) {
+	
+	if ( cb_item ) {
+		// Get link id from Dojo combo box object.
+		var linkid = cb_item.i.id;
+		
+		if ( linkid != 0 ) {
+			dojo.xhrGet ({
+				url: 'process_misc.php?m=ereserveinfo&lid=' + linkid,
+				load: function (data) {
+					document.getElementById('ereserveinformation').innerHTML = data;
+					document.getElementById('sbb').style.display='block';
+					document.reuseereserveform.fid.value = linkid;
+				 },
+				error: function (error) { alert("Error: " + error);},
+				preventCache: true
+			});
+		} else { 
+			// Clear the "no results" item text from the field.
+			var cb_elt = dijit.byId('cb');
+			
+			cb_elt.reset();
+		}
+	} 
+}
+
+function deleteProfile(profileid, sid) {
+	if (confirm('Are you sure to want to delete this custom profile and display your default profile instead? You can manually recreate the custom profile at any time.')) {
+		dojo.xhrGet ({
+			url: 'process_d.php?mode=delcustprof&profileid=' + profileid,
+			load: function (data) { getUpdatedProfile(sid); },
+			error: function (error) { alert("Error: " + error);},
+			preventCache: true
+		});	
+	}
+	return false;
+}
+
+function setShowProfile(sid,vl) {     
+	dojo.xhrGet ({
+		url: 'process_d.php?mode=togprof&sid=' + sid + '&vl=' + vl,
+		load: function (data) { getUpdatedProfile(sid);	},
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});	
+}		
+
+//MB: right now this function reloads the entire page; reloading just the affected column would be more efficient
+function getUpdatedProfile(sid) {     
+	window.location.reload();
+}
+
+function cbAddContentBox(data) {
+	dijit.byId('dlg').hide()
+	var dd_array=data.split("#@#@");
+	var boxid = dd_array[0];
+	var position = parseInt(dd_array[1]);
+	var location = parseInt(dd_array[2]);
+	var btype = parseInt(dd_array[3]);
+	var boxcnt = parseInt(dd_array[4]);
+	
+	if (boxid > 0) {
+		if ( btype == 23 || btype == 27 ) {
+			window.location.reload();
+		}
+		else if (boxcnt >= 50) {
+			//there are 50 or more boxes in this column, so reload the page which will remove the Add New Box link
+			window.location.reload();
+		} 
+		else {
+            box_config = {
+                location: location,
+                mobile: aecontent_config.mobile,
+				type: btype
+            };
+			if (location==1) { reloadColumn("center", box_config);} 
+			else if (location==2) {reloadColumn("xwide", box_config); } 
+			else if (location==3) {reloadColumn("right", box_config); } 
+			else { reloadColumn("left", box_config); }
+		}
+	}
+	else { 
+		alert("Error #156 when creating new Box. Please try again."); 
+	}
+}
+
+function reloadColumn(col, box_config) {   
+	var divname = col+"boxes";	
+	dojo.xhrGet ({
+		url: 'loadcolumn.php?where='+col+'&iid='+aecontent_config.iid+'&pid='+aecontent_config.pid+'&sid='+aecontent_config.sid+'&uid=' + aecontent_config.uid+'&laiid='+aecontent_config.la_iid,
+		load: function (data) {
+            var data_obj = eval('(' + data + ')');
+			document.getElementById(divname).innerHTML = data_obj.content;
+			
+			if (typeof(aecontent_config.myboxshape) == 'undefined') { 
+				var x=0; 
+			} 
+			else if (aecontent_config.myboxshape == 'r') { 
+				if ((versionIE() > 0) && (versionIE() < 9)) {
+                    try {
+                        jQuery('div.roundbox').corner('5px');
+                    } catch (e) {}
+				}
+			}
+			
+            // Call createBoxMenu() for the new box since the script included with the box won't be executed as part of
+            // the div content reload.
+            if ( typeof(box_config) != 'undefined' ) {
+                for ( var i = 0; i < data_obj.boxids.length; i++ ) {
+                    createBoxMenu('editbox' + data_obj.boxids[i], box_config.location, box_config.mobile, box_config.type);
+                }
+            }
+		},
+		error: function (error) { alert("Error: " + error); },
+		preventCache: true
+	});		
+}
+
+//this is just a stub function since we dont want to record a hit from the admin interface
+function hit(id,table,nwin) {
+	return true;
+}
+
+var thirdDlg;
+var textDlg;
+
+function showDlg(dtitle,url,scode) {
+	if (!thirdDlg) {
+		var pane = dojo.byId('dp');
+		pane.style.width = "850px";
+		thirdDlg = new dijit.Dialog({
+			title: dtitle,
+			href: url,
+			preventCache: true,
+			refreshOnShow: true,
+			id: "dlg"
+		},pane);
+	}
+	else {
+		thirdDlg.titleNode.innerHTML = dtitle;
+		thirdDlg.setHref(url);
+	}
+	thirdDlg.show();
+	return false;
+}			
+
+function showTEdit(dtitle,url,scode) {	
+	if (!textDlg) {
+		var pane = dojo.byId('dp2');
+		textDlg = new dijit.Dialog({
+			title: dtitle,
+			href: url,
+			id: "dlg2"
+		},pane);
+	}
+	else {
+		textDlg.titleNode.innerHTML = dtitle;
+		textDlg.setHref(url);
+	}
+	
+	textDlg.show();
+	return false;
+}			
+function saveSearchQuery(bid) {
+	var queryString = dojo.byId("searchText"+bid).value;
+	if (queryString == "") {alert('The search query field left blank!'); return false;}
+	var qst = queryString.replace(/\+/g, "&#43;"); 
+	qst = qst.replace(/\"/g,"&#34;");
+	queryString = escape(qst);
+		dojo.xhrGet ({
+			url: 'process_d.php?mode=savesearch&bid=' + bid +'&qs=' + queryString,
+			load: function (data) {alert("This query was saved as a default search and will load when the user views this page.")},
+			error: function (error) { alert("Error: " + error);},
+			preventCache: true
+		});	
+	return false;
+}		
+function flipProfile(subjectid) {
+	//changeButtonDiv();	
+	dojo.xhrGet ({
+		url: 'process_page.php?m=flipprofile&sid=' + subjectid,
+		load: function (data) { window.location.reload(); 	},
+		error: function (error) { alert("Error #1102 " + error);},
+		preventCache: true
+	});
+	return false;	
+}
+
+function createBoxMenu(boxid,col,mobile,btype) {
+	leftClickMenu = new dijit.Menu({leftClickToOpen: true, targetNodeIds:[boxid], onClose: function(){ /*this.destroy(); */ }});
+	leftClickMenu.addChild(new dijit.MenuItem({label:"Edit Box Info", onClick:function() { changeBoxTitle(boxid);} }));
+	
+	//do not display the add/edit option for linked boxes, based on the btype value passed into the function
+	//the code should be updated so that btype is always available, that way we dont need to get it from the DB
+	if (typeof(btype) == 'undefined') {
+		dojo.xhrGet ({
+			url: '/process_box.php?m=btype&bid=' + boxid.replace('editbox', ''),
+			load: function (data) { btype = data; },
+			error: function (error) { btype = 0; },
+			preventCache: true,
+			sync: true
+		});
+	}
+	if ( btype != '10' ) { leftClickMenu.addChild(new dijit.MenuItem({label:"Add / Edit Text", onClick:function() { showTEdit('Rich Text Editor','richtext.php?iid='+aecontent_config.iid+'&pid='+aecontent_config.pid+'&sid='+aecontent_config.sid+'&bid='+boxid.replace("editbox", ""),100);}})); }
+
+	leftClickMenu.addChild(new dijit.MenuItem({label:"Change Mobile Display", onClick:function() { changeMobileDisplay(boxid);}}));
+	leftClickMenu.addChild(new dijit.MenuSeparator);
+	leftClickMenu.addChild(new dijit.MenuItem({label:"Delete This Box", onClick:function() {checkBP(boxid,col);} }));
+	leftClickMenu.startup();
+}
+
+function changeMobileDisplay(b) {
+	var boxid = b.substring(7);
+	showDlg('Edit Mobile Display','mobile_process.php?action=display_box_disp&bid='+boxid,0)
+}
+function updateBoxMobileDisplay(config) {
+	dojo.xhrPost ({
+		url: 'mobile_process.php?action=' + config.action,
+		form: config.form_name,
+		load: function (data) { 
+			alert('Box Mobile Display setting saved.'); 
+			dijit.byId('dlg').hide();
+		},
+		error: function (error) { alert("Error #1101: " + error); }
+	});
+	return false;	
+}
+
+function changeBoxTitle(b) {
+	var boxid = b.substring(7);
+	showDlg('Edit Box Info','cbox.php?m=edit&iid='+aecontent_config.iid+'&pid='+aecontent_config.pid+'&sid='+aecontent_config.sid+'&bid='+boxid,0)
+}
+
+var myWin;
+function newWin(url) {
+	myWin = window.open(url, "newwin");
+	myWin.focus(); 
+	setTimeout("myWin.focus();",1);
+}
+
+function switchLAType(v){
+	document.getElementById('latype0').style.display = 'none';
+	document.getElementById('latype1').style.display = 'none';
+	document.getElementById('latype2').style.display = 'none';
+	document.getElementById('latype'+v).style.display = 'block';
+}
+function saveAnswersPre(laform) {
+	var val = laform.bid.value;
+	if (laform.latype.value == 0 && laform.qidlist.value != "" && laform.tid.value > 0) { alert("You can't enter question id numbers and select a topic. Either remove the id numbers or set the topic to 'Any Topic.'"); return false; }
+	if (laform.latype.value == 0 && !laform.qidlist.value.match(/^([0-9]+,?)*$/)) { alert("Your QID list must be comma separated numbers with no spaces."); return false; }
+	if (laform.latype.value == 2 && !laform.qid.value.match(/^[0-9]+$/)) {
+		alert("You must enter a single QID number of the question you wish to display."); return false;
+	}
+	
+	dojo.xhrPost ({
+		url: 'process_libanswers.php?m=editsettings',
+		form: laform,
+		load: function (data) {
+			if (data == 0) {
+				alert('Settings saved. The page will now reload.'); 
+				window.location.reload();
+			} else {
+				alert("Error: "+data);
+			}
+		},
+		error: function (error) { alert("Error #1101: " + error); }
+	});
+	return false;	
+}
+
+//LA box setting autocomplete
+function la_autocompload() {
+	if ( jQuery('#singleqid').length ) {
+		jQuery('#singleqid').autocomplete({
+			source: function(request, response) {
+				jQuery.ajax({
+					url: '//libanswers.com/process_searchitem.php',
+					dataType: 'jsonp',
+					data: {
+						iid: content_config.la_iid,
+						term: request.term
+					},
+					success: function(data) {
+						if (!data.length) {
+							var result = [];
+						    response(result);
+						} else {
+							response( jQuery.map(data, function(item) {
+								return {
+									label: item.label,
+									value: item.id,
+									qid: item.id
+								}
+							}));
+						}
+					}
+				});
+			},
+			minLength: 3
+		});
+	}
+}
+
+function deleteForumPost(id, key, val, pid) {
+	if (val == "p") { var msg = "Are you sure you want to delete this message thread, including the original post and all replies?"; }
+	else { var msg = "Are you sure you want to delete this message reply?"; }
+
+	if (confirm(msg) == true) {
+		dojo.xhrGet ({	
+			url: 'process_forum.php?mode=del&id='+id+'&key='+key,
+			load: function (data) {
+				if (val == "p") { window.location.href='?pid='+pid+'&sid=f'; }
+				else { window.location.href=window.location.href; }
+			},
+			preventCache: true
+		});		
+	}
+	return false;
+}
+
+function approveForumPost(id, key) {
+	dojo.xhrGet ({	
+		url: 'process_forum.php?mode=conf&id='+id+'&key='+key,
+		load: function (data) {
+			window.location.reload();
+		},
+		preventCache: true
+	});
+	return false;
+}
+function loadSubjInfo(sid) {
+	dojo.xhrGet ({	
+		url: 'process_page.php?m=subjinfo&sid='+sid,
+		load: function (data) {
+			//the data will be returned an a json encoded array; or an empty string if the page could not be found
+			if (data != "") {
+				var resp_obj;
+				eval("resp_obj = " + data + ";");
+				
+				document.addedit_page.newname.value 			= resp_obj['name'];
+				document.addedit_page.subjdesc.value 			= resp_obj['subjdesc'];
+				document.addedit_page.hide.checked 				= (resp_obj['hide'] == 1);
+				document.addedit_page.slug.value 				= (resp_obj['slug'] ? resp_obj['slug'] : '');
+				document.addedit_page.slugid.value 				= (resp_obj['slugid'] ? resp_obj['slugid'] : 0);
+				document.addedit_page.enable_redirect.disabled 	= (resp_obj['linked'] != 0);
+				document.getElementById("enabled_redirect_linked").style.display = (document.addedit_page.enable_redirect.disabled ? 'block' : 'none');
+				
+				if (resp_obj['url'] == '') {
+					document.addedit_page.enable_redirect.checked				= false;
+					document.addedit_page.target.checked 						= false;
+					document.addedit_page.url.value 							= '';
+					document.getElementById('page_redirect_div').style.display 	= 'none';	
+				}
+				else {
+					document.addedit_page.enable_redirect.checked 				= true;
+					document.addedit_page.target.checked 						= (resp_obj['target'] == 1);
+					document.addedit_page.url.value 							= resp_obj['url'];
+					document.getElementById('page_redirect_div').style.display 	= 'block';					
+				}
+			}
+		},
+		preventCache: true
+	});
+}
+function saveBoardSettings() {
+	dojo.xhrPost ({
+		url: 'process_forum.php?mode=savesettings',
+		form: 'dboardform',
+		load: function (data) {
+			if (data == "true") { window.location.reload(); }
+			else { alert("There was a problem saving your discussion board settings; please try again."); }
+		},
+		error: function (error) {
+			alert("Error #1258: " + error);
+		}
+	});
+}
+
+function saveEreserveSettings() {
+	dojo.xhrPost ({
+		url: 'process_ereserve.php?mode=savesettings',
+		form: 'ereserveform',
+		load: function (data) {
+			if (data == "true") { window.location.reload(); }
+			else { alert("There was a problem saving your electronic reserve settings; please try again.\n\n" + data); }
+		},
+		error: function (error) {
+			alert("Error #1238: " + error);
+		}
+	});
+}
+
+function saveGuideMeta() {
+	dojo.xhrPost ({
+		url: 'process_guide.php?m=customheadsave',
+		form: 'gmetaform',
+		load: function (data) {
+			if (data == true) { window.location.reload(); }
+			else { alert("There was a problem saving your custom JS/CSS code; please try again."); }
+		},
+		error: function (error) {
+			alert("Error #1251: " + error);
+		}
+	});
+}
+function updateReorderPageList(pid, parent) {
+	dojo.xhrGet ({	
+		url: 'process_guide.php?m=page_order_listing&pid='+pid+'&parent='+parent,
+		load: function (data) {
+			if (data == -1) {
+				data = "The selected guide does not contain two or more pages so the reorder function is not applicable to this selection. Please make another selection or use the button below to close this window.";
+				document.getElementById("page_order_button").style.display = "none";
+			}
+			else if (data == -2) {
+				data = "The selected page does not contain two or more sub-pages so the reorder function is not applicable to this selection. Please make another selection or use the button below to close this window.";
+				document.getElementById("page_order_button").style.display = "none";
+			}
+			else {
+				document.getElementById("page_order_button").style.display = "block";	
+			}
+			document.getElementById("orderdiv").innerHTML = data;
+		},
+		preventCache: true
+	});		
+}
+function sortTabs() {	
+	var vname = "subjectlist";
+	var leftlist = dojo.byId(vname);
+	var list = leftlist.getElementsByTagName("li");	
+	var leftorderstr = "";
+	for(i=0;i<list .length;i++) {
+	  leftorderstr += list[i].id;
+	  if(i != list.length-1) leftorderstr += ",";
+	}
+	document.taborder.orderfortabs.value = leftorderstr;
+	dojo.xhrPost ({
+		url: 'process_guide.php?m=page_order_save',
+		form: 'taborder',
+		load: function (data) {
+			if (data == 1) {
+				window.location.reload();
+			} else {
+				alert("Error reordering items - Error #08. Please reload the page and try again!");
+			}
+		},
+		error: function (error) { alert("Error #09: " + error); },
+		preventCache: true
+	});
+}
+function makePageVisible(sid, pid) {
+	dojo.xhrGet ({
+		url: 'process_page.php?m=makevisible&sid=' + sid + '&pid=' + pid,
+		load: function (data) { window.location.reload(); },
+		error: function (error) { alert("Error: " + error); },
+		preventCache: true
+	});
+}
+function removeRedirectUrl(sid, pid) {
+    if ( confirm("Are you sure you'd like to remove the Redirect URL?\n\nOK = Yes\nCancel = No") ) {
+        dojo.xhrGet ({
+            url: 'process_page.php?m=removeredirecturl&sid=' + sid + '&pid=' + pid,
+            load: function (data) { window.location.reload(); },
+            error: function (error) { alert("Error: " + error); },
+            preventCache: true
+        });
+    } else {
+        return false;
+    }
+}
+function disableButton(obj_dojo_button, msg) {
+	obj_dojo_button.attr('disabled', true);
+	if ( msg != null ) {
+		obj_dojo_button.attr('label', msg);
+	}
+}
+function saveSurveySelection(obj_type, action, column) {
+	dojo.xhrPost ({
+		url: '/process_survey.php?type=' + obj_type + '&action=' + action,
+		form: 'frm_survey_select',
+		load: function (data) {
+			if ( parseInt(data) != 'NaN' ) { 
+				dijit.byId('dlg').hide();
+				var col = ( column == 0 ? 'left' : ( column == 1 ? 'center' : ( column == 3 ? 'right' : 'xwide' ) ) );
+
+				reloadColumn(col);
+			} else {  
+				alert(data);
+			}
+		},
+		error: function (error) { alert("Error #784: " + error); }
+	});
+	return false;	
+}
+function loadSurveyDetails(type, action, survey_id) {
+	getSurveyDetails(type, action, survey_id);
+}
+function getSurveyDetails(type, action, survey_id) {
+	dojo.xhrGet ({
+		url: '/process_survey.php?type=' + type + '&action=' + action + '&survey_id=' + survey_id,
+		load: function (data) {
+			dojo.byId('survey_details').innerHTML = data; 
+		},
+		error: function (error) { 
+			alert("Error: " + error); 
+		},
+		preventCache: true
+	});
+}
+function customSearch() {
+	var search_str = dojo.string.trim(document.homesearch.searchs.value);
+	if (search_str == "") { alert(lang_mgr_global_search_required_js); return false;  }
+	search_str = encodeURIComponent(search_str);
+	
+	var search_url = dojo.string.trim(document.homesearch.what.value);
+	if (search_url.indexOf("{search}") == -1) { search_url = search_url + "{search}"; }
+	search_url = search_url.replace(/&amp;/g, "&");	//undo the encoding of &amp; because that breaks the search on the mac
+	search_url = search_url.replace("{search}", search_str);
+
+	var regexp = /(http|https):\/\/?/;
+	if (regexp.test(search_url)) { window.open(search_url); }
+	else { window.location = search_url; }
+}
+function handleEnterSearch(e, formobj, func) {
+	var evtobj=window.event? event : e //distinguish between IE's explicit event object (window.event) and Firefox's implicit.
+	var keycode = evtobj.keyCode;
+	if (keycode == 13) {
+		eval(func);
+		return false;
+	}
+	else { return true; }
+}
+function expPaginate(v) {
+	var sel = dojo.byId('expsel');
+	var exppagemax = sel.options.length;
+	var newsel = sel.selectedIndex;
+	newsel = newsel + v;
+	if (newsel < 0) { newsel = (sel.options.length-1); }
+	if (newsel > (sel.options.length-1)) { newsel = 0; }
+	sel.selectedIndex = newsel;
+	boxExplorer(sel.options[sel.selectedIndex].value);
+	return false;
+}
+function boxExplorer(v) {
+	var d=dojo.byId('boxexptitle');
+	var t=dojo.byId('boxexptext');
+	var l=dojo.byId('boxexpmore');
+	v=parseInt(v);
+	exppage = v;
+	
+	var sel = dojo.byId('expsel');
+	for (i=0; i<sel.options.length; i++) {
+		if (sel.options[i].value == v) {
+			sel.selectedIndex = i;
+		}
+	}
+	
+	switch (v){
+		case 1:
+			d.innerHTML="Rich Text / Dynamic Content / Scripts";
+			t.innerHTML="This is the most versatile box type, for any type of formatted text, HTML, or JavaScript code, or embedded widgets.<BR><BR>It is important to note that every box type contains the functionality of the Rich Text Box. Everything you can do inside the Rich Text/Dynamic Content box type you can do with other boxes as well.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761159";
+			break;
+		case 2:
+			d.innerHTML="Simple Web Links";
+			t.innerHTML="This box type enables you to enter a series of links. Each link has a title, url, and an optional short description (255 chars) which appears when the user hovers over the link.<BR><BR><strong><i>Why should I use it?</i></strong> You can track the usage statistics (outgoing clicks) for these links. Very cool!";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761160";
+			break;
+		case 3:
+			d.innerHTML="Links & Lists";
+			t.innerHTML="The Links & Lists box enables you to create lists of web links and non-web link items (regular lists, without a url). Each item can have a short description (255 chars) which appears underneath the item, and an optional More Info button which the user can click to get more information.<BR><BR><strong><i>Why should I use it?</i></strong> You can track the usage statistics (outgoing clicks) for these links. Very cool!";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761160";
+			break;
+		case 5:
+			d.innerHTML="RSS Feeds & Podcasts";
+			t.innerHTML="Display the contents of a RSS feed or podcast inside a box. You'll enter the feed (must be in rss/xml/atom format) and the number of items/headlines to display.<BR><BR><strong><i>Why should I use it?</i></strong> It's a great way to display the contents of a feed inside your guide and let users jump to the full text.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761161";
+			break;
+		case 7:
+			d.innerHTML="Embedded Media & Widgets";
+			t.innerHTML="Display a video, audio, or any widget inside the box. You will be prompted to enter the full OBJECT, EMBED, or SCRIPT code provided by the site hosting the content (e.g. YouTube, Jing, etc.).<BR><BR><strong><i>Why should I use it?</i></strong> Adding video and interactive widgets could greatly enhance the quality and usefulness of your guides.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761163";
+			break;
+		case 4:
+			d.innerHTML="Documents & Files";
+			t.innerHTML="Upload documents & other files for your users using this box type.  It's a quick way to distribute links to download files, but it doesn't display the information in the file.<BR><BR><strong><i>Why should I use it?</i></strong> It is the easist way to distribute PDF files, PowerPoint presentations, and other materials to your audience.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761166";
+			break;
+		case 14:
+			d.innerHTML="Books from the Catalog";
+			t.innerHTML="This box allows you to create lists of books from your catalog, link directly into your catalog our to an ebook, and add cover art from Syndetics or Amazon at no additional charge.<BR><BR><strong><i>Why should I use it?</i></strong> This box format is designed specifically for displaying books, so you can focus on finding great content rather than messing with HTML code.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761165";
+			break;
+		case 9:
+			d.innerHTML="Interactive Poll";
+			t.innerHTML="The Interactive Poll box allows you to create quick, simple polls to add to your guides. Many people use these in their instruction sessions as a way to engage their audience and get immediate feedback.<BR><BR><strong><i>Why should I use it?</i></strong> Polls are a simple way to learn about visitors to your site, which can help you tailor the content on your page to your audience.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761167";
+			break;			
+		case 18:
+			d.innerHTML="User Feedback";
+			t.innerHTML="The User Feedback box is similar to the Interactive Poll box, but with pre-defined options that prompt your site visitors to provide feedback about your content.<BR><BR><strong><i>Why should I use it?</i></strong> The box provides a simple way to request feedback about your guide without any complicated configuration on your part.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761188";
+			break;			
+		case 25:
+			d.innerHTML="Survey";
+			t.innerHTML="If your library subscribes to LibGuides CMS you can use this box format to embed a full detailed survey right in your page.<BR><BR><strong><i>Why should I use it?</i></strong> Because the module is great!  Also, its the most powerful survey functionality available within LibGuides CMS.";
+			l.href = "http://help.springshare.com/aecontent.php?pid=101296&sid=1825779";
+			break;			
+		case 15:
+			d.innerHTML="User Link Submission";
+			t.innerHTML="This box allows you to ask your users for their favorite links relating to...well, whatever you ask them for! Users can provide you with a URL and a description of why they think it's great.<BR><BR><strong><i>Why should I use it?</i></strong> Its a great way for visitors to contribute the content they feel is important so it can be shared with others.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761181";
+			break;			
+		case 6:
+			d.innerHTML="Dates & Events";
+			t.innerHTML="Let your users know about upcoming library events, instruction classes, and/or whatever else you have going on!<BR><BR><strong><i>Why should I use it?</i></strong> The box is a perfect way to let people know about events at your library, and using our API the box can easily be embedded into other sites.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761186";
+			break;			
+		case 12:
+			d.innerHTML="Delicious Tag Cloud";
+			t.innerHTML="Display your Delicious tag cloud right on your guide with only a few clicks.<BR><BR><strong><i>Why should I use it?</i></strong> The concept of 'tagged' content is getting more and more popular, and with our Delicious box type there is no need to reinvent the wheel. Add the content once in Delicious and reuse it on your guides - its as simple as can be!";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761180";
+			break;			
+		case 16:
+			d.innerHTML="Remote Scripts";
+			t.innerHTML="This box allows the techies amongst you to embed external content right inside a LibGuides box! You can write scripts (on your own server, in any programming language) to display any type of data from any system without having to use iframes or any other tricks.<BR><BR><strong><i>Why should I use it?</i></strong> The possibilities for this box type are endless - its the perfect way to embed content from your local systems right within LibGuides.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761168";
+			break;			
+		case 19:
+			d.innerHTML="Google Books Search";
+			t.innerHTML="The Google boxes allow you to add various Google searches to your guides. You can set example searches for your users and (with some boxes) display the results right in your page.<BR><BR><strong><i>Why should I use it?</i></strong> The amount of information available within Google is nearly limitless, so the ability to easily reuse their content can be extremely powerful.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761169";
+			break;			
+		case 20:
+			d.innerHTML="Google Scholar Search";
+			t.innerHTML="The Google boxes allow you to add various Google searches to your guides. You can set example searches for your users and (with some boxes) display the results right in your page.<BR><BR><strong><i>Why should I use it?</i></strong> The amount of information available within Google is nearly limitless, so the ability to easily reuse their content can be extremely powerful.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761169";
+			break;			
+		case 26:
+			d.innerHTML="Google Patent Search";
+			t.innerHTML="The Google boxes allow you to add various Google searches to your guides. You can set example searches for your users and (with some boxes) display the results right in your page.<BR><BR><strong><i>Why should I use it?</i></strong> The amount of information available within Google is nearly limitless, so the ability to easily reuse their content can be extremely powerful.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761169";
+			break;	
+		case 17:
+			d.innerHTML="Google Web Search";
+			t.innerHTML="The Google boxes allow you to add various Google searches to your guides. You can set example searches for your users and (with some boxes) display the results right in your page.<BR><BR><strong><i>Why should I use it?</i></strong> The amount of information available within Google is nearly limitless, so the ability to easily reuse their content can be extremely powerful.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761169";
+			break;			
+		case 22:
+			d.innerHTML="Links to Guides";
+			t.innerHTML="The Links to Guides box allows you to easily create various types of lists of links to guides based on the guide publication date, popularity, owner, subject association, etc.<BR><BR><strong><i>Why should I use it?</i></strong> The best thing about this box format is that the guide list is dynamic, so as guides are published or deleted the lists will be automatically updated.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761172";
+			break;			
+		case 24:
+			d.innerHTML="User Profile";
+			t.innerHTML="The User Profile box allows you to put your profile (or the profile of anyone else in your system) anywhere in your guide! No longer are you limited to just having your profile in the upper right or upper left columns!<BR><BR><strong><i>Why should I use it?</i></strong> You and your colleagues work hard on your guides, so lets make sure people know who created all this great content!";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=891905";
+			break;			
+		case 21:
+			d.innerHTML="LibAnswers";
+			t.innerHTML="Enable visitors to search your LibAnswers Q/A knowledgebase and ask questions right from your guide.<BR><BR><strong><i>Why should I use it?</i></strong> The LibAnswers box gives visitors ready access to Q/A content related to the guide they are currently visiting. Plus, LibAnswers will show you statistics on how many queries came from this system.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761171";
+			break;			
+		case 30:
+			d.innerHTML="Guide Table of Contents";
+			t.innerHTML="Display an automatically generated table of contents for your guide including links to all visible pages and sub-pages.<BR><BR><strong><i>Why should I use it?</i></strong> The Guide Table of Contents box allows you to include additional navigation within your guide and best of all the links are automatically updated as you add / edit / delete / move pages within your guide!";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=3694244";
+			break;
+		default : 
+			d.innerHTML="Featured Box - LibAnswers";
+			t.innerHTML="Enable visitors to search your LibAnswers Q/A knowledgebase and ask questions right from your guide.<BR><BR><strong><i>Why should I use it?</i></strong> The LibAnswers box gives visitors ready access to Q/A content related to the guide they are currently visiting. Plus, LibAnswers will show you statistics on how many queries came from this system.";
+			l.href = "http://help.springshare.com/content.php?pid=101296&sid=761171";
+			break;
+	}
+	return true;
+}
+function setBoxType(id, bname) {
+	document.addboxform.boxtype.value = id;
+	document.getElementById("btypename").innerHTML = bname;
+	boxExplorer(id);
+}
+function updateColumnWidths() {
+	var arr = dojo.byId("pos").value.split(",");
+	var l = Math.round(arr[0]);
+	var r = Math.round(arr[1]);
+
+	//how many columns are visible? a slider all the way to the left or right means that column is hidden
+	var minpos = 0, maxpos = 959, visible = 3;
+	if ((l == minpos) || (l == maxpos)) { visible = (visible - 1); }
+	if ((r == minpos) || (r == maxpos)) { visible = (visible - 1); }
+	
+	//what is the proper width based on the number of visible columns?
+	if (visible == 3) { w = 959; } else if (visible == 2) { w = 967; } else if (visible == 1) { w = 975; }
+	
+	//set the leftcol, centercol and rightcol values
+	var lwidth, cwidth, rwidth;
+	if (l == minpos) { lwidth = 0; } else if (l == maxpos) { lwidth = w; } else { lwidth = l; }
+	if (r == minpos) { rwidth = w; } else if (r == maxpos) { rwidth = 0; } else { rwidth = (w-r); }
+	cwidth = (w - lwidth - rwidth);
+	dojo.byId("total").value = (lwidth + cwidth + rwidth);
+	
+	//calculate the percentages
+	var lper = 0, cper = 0, rper = 0;
+	if (lwidth > 0) { lper = Math.round(lwidth / w * 100); }
+	if (rwidth > 0) { rper = Math.round(rwidth / w * 100); }
+	cper = (100 - lper - rper);
+
+	//set the hidden form elements
+	dojo.byId("leftcol").value =	lwidth;
+	dojo.byId("centercol").value =	cwidth;
+	dojo.byId("rightcol").value =	rwidth;
+
+	//set the text layout
+	if (lwidth == 0) { dojo.byId("lsize").innerHTML = "Hidden"; } else { dojo.byId("lsize").innerHTML = lwidth + ' px (' + lper + '%)'; }
+	if (cwidth == 0) { dojo.byId("csize").innerHTML = "Hidden"; } else { dojo.byId("csize").innerHTML = cwidth + ' px (' + cper + '%)'; }
+	if (rwidth == 0) { dojo.byId("rsize").innerHTML = "Hidden"; } else { dojo.byId("rsize").innerHTML = rwidth + ' px (' + rper + '%)'; }
+}
+function checkColumns(l,c,r) {
+	if ((l == 0) && (document.adjustcols.boxesl.value != '')) {
+		alert("The left column cannot be hidden as it contains one or more content boxes - please adjust your column widths and try again.");
+		return false;
+	}
+	if (c == 0) {  
+		alert("The center column cannot be hidden - please adjust your column widths and try again.");
+		return false;
+	}
+	if ((r == 0) && (document.adjustcols.boxesr.value != '')) {
+		alert("The right column cannot be hidden as it contains one or more content boxes - please adjust your column widths and try again.");
+		return false;
+	}
+	return true;	
+}
+function prefillColumns(l,c,r,sid) {
+	if (checkColumns(l,c,r)) {
+		dojo.byId("leftcol").value 		= l;
+		dojo.byId("centercol").value	= c;
+		dojo.byId("rightcol").value 	= r;
+		adjustColumns(sid);
+	}
+	return false;
+}
+function adjustColumns(sid) {
+	if (checkColumns(dojo.byId("leftcol").value, dojo.byId("centercol").value, dojo.byId("rightcol").value)) {
+		dojo.xhrPost ({
+			url: '/process_page.php?m=columns&sid=' + sid,
+			form: 'adc',
+			load: function (data) { window.location.reload(); },
+			error: function (error) {	alert("Error #1101: " + error); }
+		});
+	}
+	return false;
+}
+
+/* functions related to the guide layout / colors customization */
+function setField(field, val) {
+	if (document.forms["layoutform"].elements[field]) { document.forms["layoutform"].elements[field].value = val; }
+	if (field == 'boxheader') { document.layoutform.boxheadval.value = '#'; }
+	if ((field == 'pagebackground') || (field == 'tabscolor') || (field == 'boxheader')) { setColorCube(val, field); }
+	loadPreview(field);
+	return false;
+}
+function loadPreview(name) {
+	if ((name == 'pagebackground') || (name == 'tabscolor') || (name == 'tabshape')) { var type = 'p'; }
+	else { var type = 'b'; }
+	
+	dojo.xhrPost ({
+		url: '/process_guide.php?m=layout_preview&type=' + type,
+		form: 'layoutform',
+		load: function (data) {
+			if (type == 'p') { 
+				document.getElementById('page_preview').innerHTML = data; 
+			}
+			else if (type == 'b') { 
+				document.getElementById('box_preview').innerHTML = data; 
+			}
+		},
+		error: function (error) {
+			alert("Error #6888: " + error);
+		}
+	});
+	return false;	
+}
+function revertGuideColors(pid) {	
+	if (confirm('Remove the custom layout / color settings for this guide, and revert to the default values found on the system settings screen?')) {
+		dojo.xhrPost ({
+			url: '/process_guide.php?m=layout_revert&pid=' + pid,
+			load: function (data) {
+				if (parseInt(data) > 0) {
+					window.location.reload();
+				}
+				else { alert("Error #69 - could not change colors/layout. Please reload and try again."); }
+			},
+			error: function (error) {
+				alert("Error #68: " + error);
+			}
+		});
+	}
+	return false;
+}
+function setCustomBoxHeader() {
+	document.layoutform.boxheader.value = '';
+	setColorCube('', 'boxheader');
+	loadPreview('boxheadval');	
+}
+function saveGuideColors() {
+	dojo.xhrPost ({
+		url: '/process_guide.php?m=layout_save',
+		form: 'layoutform',
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				window.location.reload();
+			}
+			else { 
+				alert("Error #69 - please try again."); }
+		},
+		error: function (error) {
+			alert("Error #68: " + error);
+		}
+	});
+	return false;
+}
+function setColorCube(val, field) {
+	var images = document.getElementById(field + '_div').getElementsByTagName('img');
+	for(var i=0; i<images.length; i++) {
+		if (images[i].id.indexOf(field) == 0) {
+			if (images[i].id == field + '_' + val) { images[i].className = 'color_cube_selected'; }
+			else { images[i].className = 'color_cube'; }
+		}
+	}	
+}
+
+/* function to check IE version; returns 0 for non-IE browsers */
+function versionIE() {
+	if (navigator.appVersion.indexOf("MSIE") != -1) { return parseFloat(navigator.appVersion.split("MSIE")[1]); }
+	else { return 0; }
+}
+//================================================================================================================
+//  google_patent_search_box.js
+//================================================================================================================
+function PatentSearch(config) {
+    this.config = config;
+    this.searchField = '';
+}
+//================================================================================================================
+PatentSearch.prototype.Search = function(google_obj) {
+    // Set searchComplete as the callback function when a search is 
+    // complete.  The patentSearch object will have results in it.
+    
+    this.googlePatentSearch = new google_obj.search.PatentSearch();
+    this.googlePatentSearch.setSearchCompleteCallback(this, this.searchComplete, null);
+    
+    var searchForm = document.forms[this.config.form_name];
+    this.searchField = searchForm[this.config.field_name];
+    
+    if ( this.searchField.value != "" ) {
+        // Show loading image.
+        document.getElementById('patent_search_content_' + this.config.boxid).innerHTML = '<img alt=Loading src=\"http://lgimages.s3.amazonaws.com/loading_dots.gif\" align=\"top\">';
+        
+        // Set result set size.
+        this.googlePatentSearch.setResultSetSize(this.config.num_results)
+        
+        // Specify search quer(ies)
+        this.googlePatentSearch.execute(this.searchField.value);
+    } else {
+        return false;
+    }
+    // Include the required Google branding
+    google_obj.search.Search.getBranding("branding_" + this.config.boxid);
+    document.getElementById("branding_" + this.config.boxid).style.display = 'block';
+}
+//================================================================================================================
+PatentSearch.prototype.searchComplete = function() {
+    // Check that we got results
+    document.getElementById("patent_search_content_" + this.config.boxid).innerHTML = "";
+    
+    if ( this.googlePatentSearch.results && this.googlePatentSearch.results.length > 0 ) {
+        for ( var i = 0; i < this.googlePatentSearch.results.length; i++ ) {
+            // clone the .html node from the result
+            var node = this.googlePatentSearch.results[i].html.cloneNode(true);
+
+            // attach the node into my dom
+            document.getElementById("patent_search_content_" + this.config.boxid).appendChild(node);
+        }
+        var link = document.createElement('div');
+        
+        link.innerHTML = '<div style="padding: 10px 0 0 0;"><a href="http://www.google.com/search?tbm=pts&tbo=1&hl=en&q=' + escape(this.searchField.value) + '" target="_blank">View more results</a></div>';
+        
+        document.getElementById("patent_search_content_" + this.config.boxid).appendChild(link);
+    }
+}
+//================================================================================================================

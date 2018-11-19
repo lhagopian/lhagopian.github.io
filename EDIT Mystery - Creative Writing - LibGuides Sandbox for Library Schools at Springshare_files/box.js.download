@@ -1,0 +1,280 @@
+//box.js - functions necessary to display content within the complex box types, such as remote scripts, RSS, the Google boxes, etc.
+//this file should be included by any page that can contain box content
+
+function toggleGListDisplay(bid, val) {
+	document.getElementById("glist_a_" + bid).style.display = "none";
+	document.getElementById("glist_s_" + bid).style.display = "none";
+	document.getElementById("glist_" + val + "_" + bid).style.display = "block";
+}
+
+function gScholar(bid,mode) {
+	var queryString = dojo.byId("searchText"+bid).value;
+	queryString = queryString.replace(/\+/g, "&#43;"); 
+	queryString = queryString.replace(/\s/g, "+"); 
+	var url = 'http://scholar.google.com/scholar?q=' + queryString;
+	window.open(url,'GScholar');	
+}
+
+function gBooks_tmp(bid,mode) {
+	var queryString = dojo.byId("searchText"+bid).value;
+	
+	queryString = queryString.replace(/\+/g, "&#43;"); 
+	window.open('http://books.google.com/books?q=' + escape(queryString), 'BookWin'+bid);
+}
+function gBooks(bid,mode) {
+	dojo.byId("gsr"+bid).innerHTML = "<IMG alt=Loading SRC='/images/loading_lg.gif' border=0 align=absmiddle><span class='font12 textcolor'>Loading search results...</span>";
+	var queryString = dojo.byId("searchText"+bid).value;
+	var store = new dojox.data.GoogleBookSearchStore();
+	var list = dojo.byId("searchOutput"+bid);
+	var tmp = "";
+	//Clean up any previous searches
+	var bookurl = "";
+	var author = "";
+	var cover = "";
+	var pages = "";
+	var pyear = "";
+	while(list.firstChild){      list.removeChild(list.firstChild);    }
+	store.fetch({
+	  query:{text: queryString},
+	  count: 10,
+	  onComplete: function(items, request) {
+		if (mode == "edit") { tmp = "<A HREF=\"#\" onclick=\"return saveSearchQuery("+bid+")\" TITLE=\"Show these search results by default when users load this page\"><IMG alt=\"Add\" SRC=\"/images/additem.gif\" BORDER=\"0\"> make this the default query</A>"; }
+		dojo.byId("gsr"+bid).innerHTML= tmp;    
+		var delay = 0;
+		dojo.forEach(items, function(item){
+		bookurl  =unescape(store.getValue(item, "url"));
+		author  = store.getValue(item, "authors");
+		pages = store.getValue(item, "pageCount");	
+		pyear = store.getValue(item, "publishedYear");	
+		var reg = /.*id=([^&]*)/;
+		cover = reg.exec(bookurl)[1];
+		  var li = document.createElement("li");
+	
+		 li.innerHTML = "<span style=\"margin: 0 0 10 0;width:80px; float:left;\"><a href=\"" + bookurl  +  "\" target=\"_blank\"><img alt=\"Cover Art\" src=\"http://books.google.com/books?id=" + cover + "&printsec=frontcover&img=1&zoom=5\" class=gbookcover height=80 border=0></a></span><a href=\"" + bookurl  +  "\" target=\"_blank\">" +  store.getValue(item, "title") + "</a><BR>" + " <span style='color:#686868'>by "+author + "<BR>Published: " + pyear + ".&nbsp;&nbsp;Pages: " + pages + "</span><br clear=all><BR style=\"margin:0; padding:0; line-height:10px;\">";
+		  dojo.style(li, "opacity", "0");
+		  list.appendChild(li);          
+		  //Fade in the results.
+		  delay += 100;
+		 dojo.fadeIn({node:li}).play(delay);          
+		});
+	  }
+	});
+	queryString = queryString.replace(/\+/g, "&#43;"); 
+	dojo.byId("moreresults"+bid).innerHTML= "<a href=\"http://books.google.com/books?q="+escape(queryString)+"\" target=\"_blank\">View more results at Google Books";  
+}
+
+function boxSearch(bid,mode) {
+	dojo.byId("gsr"+bid).innerHTML = "<IMG alt=Loading SRC=\"/images/loading_lg.gif\" border=\"0\" align=absmiddle> <span class=\"font12 textcolor\">Loading search results...</span>";
+	var queryString = dojo.byId("searchText"+bid).value;
+	var store = new dojox.data.GoogleWebSearchStore();
+	var list = dojo.byId("searchOutput"+bid);
+	//Clean up any previous searches
+	while(list.firstChild){ list.removeChild(list.firstChild); }
+	store.fetch({
+	  query:{text: queryString},
+	  count: 20,
+	  onComplete: function(items, request) {
+		var tmp = "Google Search Results";
+		if (mode == "edit") { tmp = tmp + " (<A HREF=\"#\" onclick=\"return saveSearchQuery("+bid+")\"><IMG alt=\"Add\" SRC=\"/images/additem.gif\" BORDER=\"0\">make this the default query</A>)"; }
+		dojo.byId("gsr"+bid).innerHTML= tmp;    
+		//Print out the search results as an unordered list
+		var delay = 0;
+		dojo.forEach(items, function(item){
+		  var li = document.createElement("li");
+		  li.innerHTML = "<a href=\"" + unescape(store.getValue(item, "url"))  +  "\" target=\"_blank\">" +  store.getValue(item, "title") + "</a>";
+		  dojo.style(li, "opacity", "0");
+		  list.appendChild(li);          
+		  //Fade in the results.
+		  delay += 100;
+		  dojo.fadeIn({node:li}).play(delay);          
+		});
+	  }
+	});
+	queryString = queryString.replace(/\+/g, "&#43;"); 
+	dojo.byId("moreresults"+bid).innerHTML= "<a href=\"http://www.google.com/search?q="+escape(queryString)+"\" target=\"_blank\">View more results at Google.com";  
+}
+
+function rScript(rurl,bid) { 
+	if (rurl == "" || rurl == null) { return false;} 
+	var msg = "<CENTER><IMG alt=Loading SRC=images/loading_lg.gif border=0><BR>Loading Remote Script</CENTER>";		
+	
+    jQuery('#remote' + bid).html(msg);
+    
+    jQuery.ajax ({
+		url: '/remotescript.php?b='+bid+'&u='+rurl,
+		success: function(data) {
+            jQuery("#remote"+bid).html(data).slideDown('fast');
+		},
+        error: function(jqXHR, textStatus, errorThrown) {
+            alert(textStatus);
+            jQuery("#remote"+bid).html('Sorry, there has been an error processing the request.').slideDown('fast');
+        }
+	});
+}
+
+
+//LA BOX FUNCTIONS
+//limit length of an input
+function limitQLength(obj, length, msg){
+	var maxlength=length;
+	if (obj.value.length>maxlength) { obj.value=obj.value.substring(0, maxlength); 
+		alert(msg);
+	}
+}
+
+//adjust LA form email field/label for varying response types
+function changeResponseType(v) {
+	d = v.split('##');
+	jQuery('#label_pemail').html(d[1]+'<span class="reqnote"> *</span>');
+	if (jQuery('#confem').length > 0) {
+		if (d[0] == 1) {
+			jQuery('#confem').prop('checked', false).prop('disabled', true);
+			jQuery('#la_confirm label').css('color', '#aaa');
+		} else {
+			jQuery('#confem').prop('disabled', false); 
+			jQuery('#la_confirm label').css('color', 'inherit');
+		}
+	}
+}
+
+//the submit function for the form
+//all args are translations gathered from LA with the form itself
+function la_formSubmit(err_question, err_qlen, err_email, err_demo, failure, work) {
+	
+	var question = (jQuery('#pquestion').length == 0) ? '' : jQuery('#pquestion').val();
+	var details = (jQuery('#pdetails').length == 0) ? '' : jQuery('#pdetails').val();
+	if (question == "" && details == ""){ alert(err_question); return false; }
+	
+	var validate_type = 0; //0=email 1=phone
+	if (jQuery('#preptype').length > 0) {
+		v = jQuery("#preptype").val();
+		v = v.split('##');
+		validate_type = v[0];
+	}
+	var emailRegex = /^(['a-zA-Z0-9_\.\-\+])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,6})+$/i;
+	var smsregex = /^\+?[0-9]{10,}$/;
+	var emailask = jQuery.trim(jQuery('#pemail').val());
+	if (validate_type == 1){
+		//emailask = emailask.replace(/\D/g,'');
+		//if (!emailask.match(smsregex)) {	alert(err_email); return false; }
+	} else {
+		if (!emailask.match(emailRegex)) {	alert(err_email); return false; }
+	}
+	
+	//check "required fields" are not 0 or blank
+	var incomplete = 0;
+	jQuery("#la_askqform input:text.required").each(function(i){
+		if (jQuery(this).val() == "") {
+			incomplete = 1;
+		}
+	});
+	jQuery("#la_askqform select.required").each(function(i){
+		if (jQuery(this).val() == 0) {
+			incomplete = 1;
+		}
+	});
+	
+	if (incomplete == 1) { alert(err_demo); return false; }
+	
+	jQuery('#qsubmitbutton').prop('disabled', true);
+
+	jQuery.post (
+		'/process_libanswers.php?m=submitq&pu='+springSpace.la_formwidget.refer,
+		jQuery('#la_askqform').serialize(),
+		function(data) {
+			if (parseInt(data.contents) > 0) {
+				jQuery('#la_result').html(data.message).slideDown('fast').delay(15000).slideUp('slow');
+				jQuery('#la_askqform select').val('0');
+				jQuery('#la_askqform input:text').val('');
+				jQuery('#la_askqform textarea').val('');
+				jQuery('#la_askqform input:checkbox').prop('checked', false);
+			} else {
+				alert(failure);
+			}
+			jQuery('#qsubmitbutton').prop('disabled', false);
+		},
+		'json'
+	);
+
+	return false;
+}
+
+
+//LA SEARCH BOX Functions
+var uiLoad = 0;
+//jQuery UI if we need it
+function uiLoadHandler() {
+
+	var script_tag = document.createElement('script');
+	script_tag.setAttribute("type","text/javascript");
+	script_tag.setAttribute("src",
+	"http://libguides.com/js/jquery-ui.widget.min.js");
+
+	if (script_tag.readyState) { // for IE
+		script_tag.onreadystatechange = function () {
+   	     if (this.readyState == 'complete' || this.readyState == 'loaded') {
+    	 	la_enableSearchAuto();
+      	 }
+		};
+	} else {
+		script_tag.onload = la_enableSearchAuto;
+	}
+	uiLoad = 1;
+	
+	//UI Stylsheet
+	var css_url = "http://code.jquery.com/ui/1.8.2/themes/smoothness/jquery-ui.css";
+	if(document.createStyleSheet) {
+	    try { document.createStyleSheet(css_url); } catch (e) { }
+	}
+	else {
+	    var css_link = jQuery("<link>", { 
+		    rel: "stylesheet", 
+		    type: "text/css", 
+		    href: css_url
+		});
+		css_link.appendTo('head');
+	}
+	
+	(document.getElementsByTagName("head")[0] || document.documentElement).appendChild(script_tag);
+}
+
+//enable autocomplete on the LA box search widget
+function la_enableSearchAuto(){
+	if ( jQuery('#la_qentry').length ) {
+
+		var la_iid = (typeof content_config == 'undefined') ? laIID : content_config.la_iid;
+		
+		jQuery('#la_qentry').autocomplete({
+			source: function(request, response) {
+				jQuery.ajax({
+					url: "/process_libanswers.php?m=autocomplete",
+					dataType: "json",
+					data: {
+						iid: la_iid,
+						term: request.term
+					},
+					success: function(data) {
+						response( jQuery.map(data, function(item) {
+							return {
+								label: item.label,
+								value: item.label,
+								qid: item.id
+							}
+						}));
+					}
+				});
+			},
+			minLength: 3
+			}).data( "autocomplete" )._renderItem = function( ul, item ) {
+			if (item.qid > 0) {
+			return jQuery( "<li></li>" )
+				.data( "item.autocomplete", item )
+				.append( "<a><div class=\"auto_qa\">Q&A</div><div class=ast>" + item.label + "</div></a>" )
+				.appendTo( ul );
+			} else {
+				return false;
+			}
+		};
+	} //if input present
+	
+}

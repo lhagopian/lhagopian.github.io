@@ -1,0 +1,131 @@
+/*
+Namespace implementation reference: http://stackoverflow.com/a/881572
+*/
+var springSpace = springSpace || {};
+springSpace.tagParser = {};
+
+springSpace.tagParser._construct = function() {
+    //var staticVariable = "This is available to all functions created here"
+    //====================================================
+    function SpringshareTagParser(obj_config) {
+    
+        this.elt_id = this.setProp(obj_config['elt_id'], "");
+        this.tags = this.setProp(obj_config['tags'], new Array());
+        this.message = this.setProp(obj_config['message'], "");
+        this.return_type = 'alert'; // 'alert' or 'string'.
+        
+        this.parseSuccess = true;
+        this.parseFailures = [];
+    }
+    //====================================================
+    SpringshareTagParser.prototype.setProp=function(id, default_val) {
+        return ( id ? id : default_val );
+    }
+    //====================================================
+    SpringshareTagParser.prototype.parse=function() {
+        var data = document.getElementById(this.elt_id).value;
+        
+        for ( var i = 0; i < this.tags.length; i++ ) {
+            //alert(this.tags[i]);
+            eval('var open_pattern=/<' + this.tags[i] + '/gi');
+            eval('var close_pattern=/<\\/' + this.tags[i] + '>/gi');
+            var open_matches = data.match(open_pattern);
+            var close_matches = data.match(close_pattern);
+
+            if ( open_matches !== null && close_matches !== null ) {
+                // We have macthes for opening and closing tags. Make sure there are the same number.
+                if ( open_matches.length !== close_matches.length ) {
+                    this.setFailureData(this.tags[i], open_matches.length, close_matches.length );
+                }
+            } else if ( open_matches == null && close_matches == null ) {
+                // We're good.
+            } else if ( close_matches == null ) {
+                // We have open tags but not closing tags.
+                    this.setFailureData(this.tags[i], open_matches.length, 0 );
+            } else if ( open_matches == null ) {
+                // We have closing tags but no open tags.
+                    this.setFailureData(this.tags[i], 0, close_matches.length );
+            }
+        }
+        
+        if ( !this.parseSuccess ) {
+            alert_message = this.displayAlert();
+            
+            // Reset for next call.
+            this.initData();
+            
+            if ( this.return_type == 'alert' ) {
+                alert(alert_message);
+                
+                return false;
+            } else {
+                return alert_message;
+            }
+        } else {
+            // Reset for next call.
+            this.initData();
+            
+            return true;
+        }
+    }
+    //====================================================
+    SpringshareTagParser.prototype.initData=function() {
+        this.parseSuccess = true;
+        this.parseFailures = [];
+    }
+    //====================================================
+    SpringshareTagParser.prototype.setFailureData=function(tag_name, open_count, close_count) {
+        this.parseSuccess = false;
+        this.parseFailures.push(
+                {
+                    tag: tag_name,
+                    open_tags: open_count,
+                    close_tags: close_count
+                });
+    }
+    //====================================================
+    SpringshareTagParser.prototype.displayAlert=function() {
+        var output = this.message + '\n\nDetails:\n';
+        
+        if ( !this.parseSuccess ) {
+            for ( var msg_idx in this.parseFailures ) {
+                output = output + '\n - The \'' + this.parseFailures[msg_idx].tag + '\' tag has ' + this.parseFailures[msg_idx].open_tags + ' opening tag(s) and ' + this.parseFailures[msg_idx].close_tags + ' closing tag(s)';
+            }
+        }
+        
+        return output;
+    }
+    //====================================================
+    /*
+    function privateStuff()
+    {
+    }
+
+    function publicStuff()
+    {
+       //code that may call other public and private functions
+    }
+    //List of things to place publically
+    this.publicStuff = publicStuff
+    */
+    this.SpringshareTagParser = SpringshareTagParser
+};
+springSpace.tagParser._construct();
+
+/*
+Ref: http://stackoverflow.com/a/881572
+
+//The following may or may not be in another file
+myNamespace.subName = {}
+myNamespace.subName._construct = function()
+{
+   //build namespace
+}
+myNamespace.subName._construct()
+External code can then:-
+
+var myClass = new myNamespace.MyClass();
+var myOtherClass = new myNamepace.subName.SomeOtherClass();
+myNamespace.subName.publicOtherStuff(someParameter);
+*/
+//====================================================

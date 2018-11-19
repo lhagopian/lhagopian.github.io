@@ -1,0 +1,290 @@
+//================================================================================================================
+function toggleFolderView(efid) {
+	var folder = document.getElementById("erfolder" + efid);
+	var icon = document.getElementById("ericon" + efid);
+	if (folder) {
+		if (folder.style.display == "none") { folder.style.display = "block"; icon.src = "http://lgimages.s3.amazonaws.com/icon_folder_open.png"; }
+		else { folder.style.display = "none"; icon.src = "http://lgimages.s3.amazonaws.com/icon_folder_closed.png"; }
+	}
+	return false;
+}
+//================================================================================================================
+function toggleAllFolders(state) {
+	if (state) {
+		var sty = 'block';
+		var ico = 'http://lgimages.s3.amazonaws.com/icon_folder_open.png';
+	}
+	else {
+		var sty = 'none';
+		var ico = 'http://lgimages.s3.amazonaws.com/icon_folder_closed.png';
+	}
+	
+	//find all the folders on the page, and set their state
+	var folders = document.getElementById('filelist').getElementsByTagName('img');
+	for(var i=0; i<folders.length; i++) {
+		if (folders[i].id.indexOf('ericon') == 0) {
+			document.getElementById(folders[i].id.replace('ericon', 'erfolder')).style.display = sty;
+			folders[i].src = ico;
+		}
+	}
+	
+	return false;
+}
+//================================================================================================================
+function deleteFolder(efid, key) {
+	var msg = "Are you sure you would like to delete this folder, and move any enclosed e-reseve items to the root level of the page?";
+	if (confirm(msg)) {
+		dojo.xhrGet ({
+			url: '/process_ereserve.php?mode=folder_delete&efid='+efid+'&key='+key,
+			load: function (data) { window.location.reload(); },
+			error: function (error) { }
+		});	
+	}
+	return false;
+}
+//================================================================================================================
+function populateFolders(ecid, efid) {
+	dojo.xhrGet ({
+		url: '/process_ereserve.php?mode=folder_menu&ecid='+ecid+'&efid='+efid,
+		load: function (data) { document.getElementById("efid_cell").innerHTML = data; },
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});	
+}
+//================================================================================================================
+function toggleNewFolder(val) {
+	if (val == "new") { 
+		document.getElementById("new_folder_row").style.display = "block";
+	}
+	else { 
+		document.getElementById("new_folder_row").style.display = "none"; 
+	}
+}
+//================================================================================================================
+function saveFolderName() {
+	dojo.xhrPost ({
+		url: 'process_ereserve.php?mode=folder_update',      
+		form: 'folderform',
+		load: function (data) { window.location.reload(); },
+		error: function (error) { }
+	});
+}
+//================================================================================================================
+function addEreserve(mode) {	
+	if (document.addereserveform.ecid.value == "0") { alert("Please select a course before you continue!"); return false; }
+	if (document.addereserveform.name.value == "") { alert("Please provide a title before you continue!"); return false; }
+	
+	dojo.io.iframe.send({
+		url: "process_ereserve.php?mode=save",
+		method: "post",
+		handleAs: "text",
+		form: dojo.byId("erform"),
+		load: function(data){
+            if ( data == 'timeout' ) {
+                alert('Sorry, your session has timed out.\n\nPlease log back in and try again.');
+            }
+			dijit.byId('dlg').hide();
+			window.location.reload();
+		},
+		error: function (error) { alert("Error #2784: " + error); }
+	});
+}
+//================================================================================================================
+function toggleErDateVis(val) {
+	if (val == "custom") {
+		if (document.getElementById("startrow").tagName == 'TR') {
+			document.getElementById("startrow").style.display="table-row"; 
+			document.getElementById("endrow").style.display="table-row"; 				
+		}
+		else {
+			document.getElementById("startrow").style.display="block"; 
+			document.getElementById("endrow").style.display="block"; 	
+		}
+	}
+	else { 
+		document.getElementById("startrow").style.display="none"; 
+		document.getElementById("endrow").style.display="none"; 
+	}
+}
+
+//================================================================================================================
+function loadEreserve(id, recordhit) {
+	/* skip the call to hit_er since this is being loaded from the admin interface */
+	showDlg(lang_mgr_er_view_complete_record,'process_ereserve.php?mode=display&cid='+id);
+	return false;
+}
+//================================================================================================================
+function loadErItemsForReorder(efid) {
+	document.getElementById("er_items").innerHTML = '<img border="0" src="http://lgimages.s3.amazonaws.com/loading_dots.gif" />';
+	dojo.xhrGet ({
+		url: '/process_ereserve.php?mode=reorder_list&ecid='+document.er_reorder.ecid.value+'&efid='+efid,
+		load: function (data) { 
+			document.getElementById("er_items").innerHTML = data; 
+			c1 = new dojo.dnd.Source('reordlist_er');
+		},
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});
+}
+//================================================================================================================
+function saveErItemOrder() {
+	if (document.getElementById('efid').value == '') {
+		alert('Please make a selection from the provided menu before clicking the Update button.'); 	
+	}
+	else {
+		var list = dojo.byId('reordlist_er').getElementsByTagName("li");	
+		var leftorderstr = "";
+		for(i=0;i<list.length;i++) {
+		  leftorderstr += list[i].id;
+		  if(i != list.length-1)
+			leftorderstr += ",";
+		}
+		document.er_reorder.lo.value = leftorderstr;
+		dojo.xhrPost ({
+			url: '/process_ereserve.php?mode=reorder_process',
+			form: 'er_reorder',
+			load: function (data) {
+				if (data == 1) {
+					window.location.reload();
+				}
+				else {
+					alert('An error occurred while saving your changes - please try again.');
+				}
+			},
+			error: function (error) { }
+		});
+	}
+	return false;		
+}
+//================================================================================================================
+function deleteEreserve(pid,fid,op) {	
+	if (op == 'l') { var msg = "Are you sure you want to remove this e-reserve item from the page?"; } 
+	else { var msg = "Are you sure you want to delete this e-reserve item from the system?"; }
+	
+	if (confirm(msg)) {
+		dojo.xhrGet ({
+			url: 'process_ereserve.php?mode=delete&pid='+pid+'&fid='+fid,  
+			load: function (data) {
+				window.location.reload();
+			},
+			error: function (error) {
+				alert("Error #2933 when deleting the e-reserve items: " + error);
+			},
+			preventCache: true
+		});	
+	}
+	return false;
+}
+//================================================================================================================
+function saveCourse(iid) {
+	if (document.courseform.cnumber.value == "") { alert("You must provide a course number before you can continue."); return false; }
+	if (document.courseform.course.value == "") { alert("You must provide a course name before you can continue."); return false; }
+	if (document.courseform.instructor.value == "") { alert("You provide enter an instructor before you can continue."); return false; }
+	if (document.courseform.term.value == "") { alert("You must provide a term before you can continue."); return false; }
+	dojo.xhrPost ({
+		url: "process_ereserve.php?mode=course_save&iid=' . $this->iid . '",      
+		form: "courseform",
+		load: function (data) { window.location.reload(); },
+		error: function (error) { alert("Error: " + error); }
+	});			
+}
+//================================================================================================================
+function delCourse(ecid, iid) {
+	var cm = "Are you sure you want to delete this course, and remove the course information from all e-reserve items assigned to this course?";
+	var dbox= confirm(cm);
+	if (dbox) {
+		dojo.xhrGet ({
+			url: "process_ereserve.php?mode=course_delete&ecid="+ecid+"&iid="+' . $this->iid . ',
+			load: function (data) { window.location.reload(); },
+			error: function (error) { alert("Error: " + error); },
+			preventCache: true
+		});	
+	};
+	return false;
+}
+//================================================================================================================
+function addErPid() {
+	var index = document.courseform.pid.selectedIndex;
+	var val = document.courseform.pid.options[index].value;
+	var txt = "<span id=\'opt" + val + "\'>" + document.courseform.pid.options[index].text + " <a href=\'#\' onclick=\'return removeErPid(" + val + ");\'>(remove)</a><BR></span>";
+	document.courseform.pids_add.value = document.courseform.pids_add.value + "," + val + ",";
+	document.courseform.pids_remove.value = document.courseform.pids_remove.value.replace("," + val + ",", "");
+	document.getElementById("pid_list").innerHTML = document.getElementById("pid_list").innerHTML + txt;
+}
+//================================================================================================================
+function removeErPid(pid) {
+	document.courseform.pids_add.value = document.courseform.pids_add.value.replace("," + pid + ",", "");
+	document.courseform.pids_remove.value = document.courseform.pids_remove.value  + "," + pid + ",";
+	document.getElementById("opt" + pid).style.display = "none";
+	document.getElementById("opt" + pid).id = "removed" + pid;
+}
+//================================================================================================================
+function addProp(prop) {
+	dojo.xhrPost ({
+		url: "process_ereserve.php?mode=propadd&iid=" + iid + "&prop=" + prop,
+		form: "propform",
+		load: function (data) { window.location.reload(); },
+		error: function (error) { alert("Error: " + error); },
+		preventCache: true
+	});
+	return false;			
+}
+//================================================================================================================
+function deleteProp(prop, epid, iid) {
+	dojo.xhrGet ({
+		url: "process_ereserve.php?mode=propdelete&iid=" + iid + "&epid=" + epid,
+		load: function (data) { window.location.reload(); },
+		error: function (error) { alert("Error: " + error); },
+		preventCache: true
+	});
+	return false;	
+}
+//================================================================================================================
+function deleteErDate(edid) {
+	if (confirm("If you delete this date range, any e-reserve items configured to use this date range will be returned to the default visibility setting.  Are you sure you want to continue?")) {
+		dojo.xhrGet ({
+			url: "process_ereserve.php?mode=erdate_delete&iid=" + iid + "&edid=" + edid,
+			load: function (data) { window.location.reload(); },
+			error: function (error) { alert("Error: " + error); },
+			preventCache: true
+		});
+	}
+	return false;	
+}
+//================================================================================================================
+function saveErDates() {
+	dojo.xhrPost ({
+		url: "process_ereserve.php?mode=erdate_save&iid=" + iid,
+		form: "erdateform",
+		load: function (data) { window.location.reload(); },
+		error: function (error) { alert("Error: " + error); },
+		preventCache: true
+	});
+	return false;			
+}
+//================================================================================================================
+function checkErItemPass(cid) {
+	dojo.xhrPost ({
+		url: get_dojo_url('process_ereserve.php?mode=checkitempass&cid='+cid),
+		form: 'eraccept',
+		load: function (data) {
+			if (data == 1) {
+				hit_er(cid, 'ereserve', 0); 
+				document.getElementById("erpassdiv").style.display = "none";
+				document.getElementById("erinfodiv").style.display = "block";
+			}
+			else {
+				document.getElementById("erpassmsg").innerHTML = lang_mgr_global_password_incorrect + "<BR><BR>";
+				document.eraccept.epass.value = "";
+			}
+		},
+		error: function (error) { }
+	});
+	return false;
+}
+//================================================================================================================
+function hit_er(id,table,nwin) {
+	/* dont record hits from the admin interface */
+	return true;
+}
+//================================================================================================================

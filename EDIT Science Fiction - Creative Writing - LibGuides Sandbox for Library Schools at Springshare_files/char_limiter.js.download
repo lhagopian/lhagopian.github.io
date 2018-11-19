@@ -1,0 +1,127 @@
+
+var springSpace = springSpace || {};
+springSpace.charLimiter = {};
+
+springSpace.charLimiter._construct = function() {
+    //============================================================*/
+    //                BEGIN: TACharLimiter
+    //============================================================*/
+    function TACharLimiter(obj_config) {
+        // int_char_limit, str_textarea_elt_id, str_counter_elt_id
+        this.REPL_CHAR_LIMIT            = "[%CHAR_LIMIT%]";
+        this.REPL_COUNTER_VALUE         = "[%COUNTER_VALUE%]";
+        this.REPL_COUNTER_COLOR         = "[%COUNTER_COLOR_OK%]";
+        
+        this.counterColorOK         = "#000000";
+        this.counterColorAlert      = "#ff0000";
+        this.counterValueDefault    = 2000;
+        this.counterHTMLDefault     = "Max. Characters: " + this.REPL_CHAR_LIMIT + " Characters Remaining: <span style='font-weight: bold;color:" + this.REPL_COUNTER_COLOR + "'>" + this.REPL_COUNTER_VALUE + "</span>";
+        
+        this.limit              = this.setProp(obj_config['charLimit'], this.counterValueDefault);
+        this.counterEltID       = this.setProp(obj_config['counterEltID'], "");
+        this.textAreaEltID      = this.setProp(obj_config['textAreaEltID'], "");
+        
+        this.counterElt         = this.setElt(this.counterEltID);
+        this.textAreaElt        = this.setElt(this.textAreaEltID);
+        this.charCount          = this.limit - this.textAreaElt.value.length;
+        
+        this.counterHTML        = this.setProp(obj_config['counterHTML'], this.counterHTMLDefault);
+        this.counterLabel       = "This field is limited to " + this.REPL_CHAR_LIMIT + " characters.";
+        
+        this.showMaxAllowed     = false;
+        
+        this.init();
+        //this.validate(document.getElementById(this.textAreaEltName));
+    }
+    //============================================================
+    TACharLimiter.prototype.setProp=function(id, default_val) {
+        return ( id ? id : default_val );
+    }
+    //============================================================
+    TACharLimiter.prototype.setElt=function(id, default_val) {
+        return ( id ? document.getElementById(id) : default_val );
+    }
+    //============================================================
+    TACharLimiter.prototype.validate=function() {
+        if ( this.textAreaElt.value.length >= this.limit ) {
+            this.textAreaElt.value = this.textAreaElt.value.substr(0, this.limit);
+        }
+        
+        var strCounterVal = this.limit - this.textAreaElt.value.length;
+        
+        this.charCount = parseInt(strCounterVal);
+        
+        this.loadCounterElt();
+    }
+    //============================================================
+    TACharLimiter.prototype.init=function () {
+        this.bind();
+        this.loadCounterElt();
+        
+        var oTACL = this;
+        
+        this.textAreaElt.validate=function() {
+            if ( this.value.length >= oTACL.limit ) {
+                this.value = this.value.substr(0, oTACL.limit);
+                this.scrollTop = this.scrollHeight;
+            }
+            
+            var strCounterVal = oTACL.limit - this.value.length;
+            
+            oTACL.charCount = parseInt(strCounterVal);
+            
+            oTACL.loadCounterElt();
+        }
+    }
+    //============================================================
+    TACharLimiter.prototype.loadCounterElt=function() {
+        var bHitLimit = ((this.limit - this.textAreaElt.value.length) == 0);
+        var strColor;
+        var strAlertMsg = "";
+        
+        if ( bHitLimit ) {
+            strColor = this.counterColorAlert;
+            //strAlertMsg = " " + this.counterLabel.replace(this.REPL_CHAR_LIMIT, this.limit);
+        }
+        else {
+            strColor = this.counterColorOK;
+            //strAlertMsg = "";
+        }
+            
+        this.counterElt.innerHTML = this.counterHTML.replace(this.REPL_COUNTER_VALUE, this.charCount).replace(this.REPL_COUNTER_COLOR, strColor).replace(this.REPL_CHAR_LIMIT, this.limit) + strAlertMsg;
+    }
+    //================================================================
+    TACharLimiter.prototype.bind = function() {
+        this.counterElt.modelObj  = this.counterElt;
+        //this.counterElt.onclick   = counterEltEventHandler;
+        
+        this.textAreaElt.modelObj       = this.textAreaElt;
+        this.textAreaElt.onkeyup        = this.textAreaEltEventHandler;
+        this.textAreaElt.onkeydown      = this.textAreaEltEventHandler;
+        //this.textAreaElt.onmousedown    = textAreaEltEventHandler;
+        //this.textAreaElt.onchange       = textAreaEltEventHandler;
+    }
+    //================================================================
+    TACharLimiter.prototype.textAreaEltEventHandler=function(event){
+        var oModel = this.modelObj;
+        var oEvent = ( event ? event : window.event );
+        //debugger;
+        if ( oModel ) {
+            oModel.validate();
+        }
+        return true;
+    }
+    //================================================================
+    function counterEltEventHandler(event){
+        var oModel = this.modelObj;
+        var oEvent = ( event ? event : window.event );
+        //debugger;
+        if ( oModel ) {
+            alert(oModel.id);
+        }
+        return true;
+    }
+    //================================================================
+    this.TACharLimiter = TACharLimiter
+};
+springSpace.charLimiter._construct();

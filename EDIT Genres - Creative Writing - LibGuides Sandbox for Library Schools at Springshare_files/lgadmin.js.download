@@ -1,0 +1,2442 @@
+// JavaScript Document
+
+//common messages and variables that are used in multiple functions
+var msg_error 					= 'An error occurred while processing you request - please try again.';
+var msg_support 				= 'If you continue to receive this error please report the problem using the support link found at the bottom of this page.';
+var msg_err_standard			= msg_error + ' ' + msg_support;
+var img_loading_src 			= '<img border="0" src="http://lgimages.s3.amazonaws.com/loading_dots.gif" />';
+var msg_friendly_url_invalid	= 'You may only enter alphanumeric characters (a-z, 1-9), dashes, forward-slashes, and underscores - please try again!';
+var msg_friendly_url_in_use		= 'The friendly URL you have selected is already being used in your system - please try another.';
+
+function checkBP(b,col) { // check box parent 
+	var boxid = b.substring(7);
+	dojo.xhrGet ({
+		url: 'process_box.php?m=checkp&bid='+boxid,       
+		load: function (data) { delContentBox(boxid,mySID,parseInt(data),col);	},
+		error: function (error) { alert("Error #03 when deleting box: " + error);},
+		preventCache: true
+	});
+	return true;
+}
+ 
+function delContentBox(bid,sid,isparent,col) {
+	var cmessage;
+	if (isparent == 1) { cmessage = "There are one or more boxes on other pages that are linked to this box!\n\nDeleting this box deletes all content inside of it, as well as within the boxes linked to this content. Are you sure you want to do this?"; }
+	else { cmessage = "Deleting this box deletes all content inside of it. Are you sure you want to do this?"; }
+	
+	var dbox= confirm(cmessage);
+	if (dbox) {
+		dojo.xhrGet ({
+			url: 'process_box.php?m=del&pid='+myPID+'&bid=' + bid + '&sid=' + sid + '&col=' + col,       
+			load: function (data) {
+				if (data == "reload") {
+					//if we get back "reload" that means the number of boxes in the column has been reduced to 49, so we want
+					//to reload the page, which will reenable the "Add New Box" link at the bottom of the column
+					window.location.reload();
+				}
+				else if (parseInt(data) > 0) {
+					var node = document.getElementById("wrapbox"+data);
+                    
+                    if ( node == null ) {
+                        // The most likely cause of not being able to retreive the element is for a linked box in a guide that was copied from a template.
+                        // Instead of handling a complex case of passing the correct boxid around we'll just refresh the page
+                        // to reflect the change.
+                        window.location.reload();
+                    } else {
+                        dojo._destroyElement(node);
+                    }
+				}
+				else { 
+					alert("Error deleting content box - error #02. Please reload and try again.");
+				}
+			},
+			error: function (error) { alert("Error #03 when deleting box: " + error); },
+			preventCache: true
+		});	
+	} // end if dbox
+	return false;
+}   				
+		
+function deleteLink(lid,pid,sid,bid) {
+	dojo.xhrGet ({
+		url: 'process_links.php?m=del&lid='+lid+'&pid='+myPID+'&sid='+sid,       
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				dijit.byId('dlg').hide()
+				var node = document.getElementById("link"+lid);
+				dojo._destroyElement(node);
+			}
+			else { alert("Error deleting the link - error #04. Please reload and try again.");}
+		},
+		error: function (error) { alert("Error #05 when deleting link: " + error);	},
+		preventCache: true
+	});	
+	return false;
+}
+
+function moveLink(lid, key) {
+	dojo.xhrGet ({
+		url: 'process_links.php?m=move&lid='+lid+'&key='+key,
+		form: 'addlinkform',       
+		load: function (data) {
+			if (data == 1) { window.location.reload(); }
+			else { alert(data + ' ' + msg_support); }
+		},
+		error: function (error) { alert("Error #9505 when deleting link: " + error); },
+		preventCache: true
+	});	
+	return false;
+}
+
+function deleteLinkConf(lid,pid,sid,bid) {
+	dojo.xhrGet ({
+		url: 'process_links.php?m=confdel&lid='+lid,
+		load: function (data) {
+			if (confirm(data)) { 
+				deleteLink(lid,pid,sid,bid); 
+			}
+		},
+		error: function (error) { alert("Error #03 when deleting link: " + error); },
+		preventCache: true
+	});
+	return false;		
+}
+
+function delULink(lid,bid) {
+	if (confirm("Are you sure you want to delete this user-submitted link?")) {
+		dojo.xhrGet ({
+			url: 'process_usersubmit.php?m=del&lid='+lid+'&pid='+myPID+'&bid='+bid,       
+			load: function (data) {
+				if (parseInt(data) > 0) {
+					var node = document.getElementById("userlink"+lid);
+					dojo._destroyElement(node);
+				}
+				else { alert("Error deleting the user link - error #71. Please reload and try again.");}
+			},
+			error: function (error) { alert("Error #72 when deleting user submitted link: " + error);	},
+			preventCache: true
+		});	
+	}
+	return false;
+}
+
+function appULink(lid,bid) {
+	if (confirm("This user submitted link has not been approved yet, so its not currently visible to the public.  Would you like to approve this link now?")) {
+		dojo.xhrGet ({
+			url: 'process_usersubmit.php?m=approve&lid='+lid+'&pid='+myPID+'&bid='+bid,       
+			load: function (data) {
+				if (parseInt(data) > 0) {
+					reloadBox(myIID,myPID,mySID,bid);
+				}
+				else { alert("Error approving the user link - error #171. Please reload and try again.");}
+			},
+			error: function (error) { alert("Error #172 when approving user submitted link: " + error);	},
+			preventCache: true
+		});	
+	}
+	return false;
+}
+
+function deleteBook(lid) {     
+	dojo.xhrGet ({
+		url: 'process_content.php?m=book&pid='+myPID+'&op=del&lid='+lid,       
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				dijit.byId('dlg').hide()
+				var node = document.getElementById("book"+lid);
+				dojo._destroyElement(node);
+			}
+			else { alert("Error deleting the book info - error #06. Please reload and try again.");}
+		},
+		error: function (error) {	alert("Error #07: " + error);},
+		preventCache: true
+	});
+	return false;
+}
+
+function deleteFile(pid,sid,bid,fid,op) {
+	dojo.xhrGet ({
+		url: 'process_misc.php?m=deldoc&pid='+pid+'&fid='+fid+'&bid='+bid,  
+		load: function (data) {
+			dijit.byId('dlg').hide();
+			var fid = parseInt(data);
+			var filediv = "file"+fid;
+			var node = dojo.byId(filediv);
+			dojo._destroyElement(node);
+		},
+		error: function (error) {
+			alert("Error #29 when deleting the document: " + error);},
+		preventCache: true
+	});	
+	return false;
+}
+
+function deleteEvent(eid,bid) {
+	if (confirm("Are you sure you want to delete this Event?")) {
+
+		dojo.xhrPost ({
+					url: 'process_content.php?m=evt&op=del&eid='+eid+'&bid='+bid,
+					form: 'edform',
+					load: function (data) {
+						if (parseInt(data) > 0) {
+						//	myBID = data;
+							dijit.byId('dlg').hide();
+							reloadBox(myIID,myPID,mySID,bid,myboxshape);
+						}
+						else {alert("Error #52 deleting the Event. Please try this operation again."); }
+					},
+					error: function (error) {
+							alert("Error #51: " + error);
+					}
+		});
+	}
+	return false;
+}
+
+function showAlert(pWidth, iType, iId, iScript) {
+	var objName = "popupinfo"
+	var objNameHtml = "popupinfocontent";
+	var objNameTitle = "popupinfotitle";
+
+	if (iScript == 0) { url="link.php?btype="+iType+"&cid="+iId; dojo.byId(objNameTitle).innerHTML = "<h6>" + lang_mgr_global_more_information + "</h6>"; }
+	if (iScript == 2) { url="inlinestat.php?table="+iType+"&cid="+iId; dojo.byId(objNameTitle).innerHTML = "<h6>Quick Statistics</h6>"; }
+	if (iScript == 4) { url="process_page.php?m=showlinked&sid="+iId; dojo.byId(objNameTitle).innerHTML = "<h6>Linked Page Information</h6>"; }
+	
+	if (url) {
+		dojo.xhrGet ({
+			url: url,       
+			load: function (data) { document.getElementById(objNameHtml).innerHTML = data; },
+			error: function (error) { alert("Error #14 when writing data: " + error);},
+			preventCache: true
+		});	
+	}
+	dojo.byId(objName).style.width = pWidth+"px";	
+	dojo.byId(objName).style.top = cursorY+"px";
+	dojo.byId(objName).style.left = cursorX+"px";				
+	dojo.byId(objName).style.visibility='visible';
+}
+
+function showInlineStats(width, table, id, linked_id, page_id) {
+	var objName = "popupinfo"
+	var objNameHtml = "popupinfocontent";
+	var objNameTitle = "popupinfotitle";
+    var url = "inlinestat.php?table="+table+"&cid="+id + "&lcid=" + linked_id + "&sid=" + page_id;
+    
+    dojo.byId(objNameTitle).innerHTML = "<h6>Quick Statistics</h6>";
+	
+	if (url) {
+		dojo.xhrGet ({
+			url: url,       
+			load: function (data) { document.getElementById(objNameHtml).innerHTML = data; },
+			error: function (error) { alert("Error #14 when writing data: " + error);},
+			preventCache: true
+		});	
+	}
+	dojo.byId(objName).style.width = width+"px";	
+	dojo.byId(objName).style.top = cursorY+"px";
+	dojo.byId(objName).style.left = cursorX+"px";				
+	dojo.byId(objName).style.visibility='visible';
+}
+
+function saveProfile() {
+	var success = 0;
+	var sUpload=document.editprofile.userfile.value;
+	
+	if(sUpload!="") {
+		var iExt=sUpload.indexOf("\\");
+		var iDot=sUpload.indexOf(".");
+
+		if(iDot < 0) {
+			alert("It appears that you have selected an invalid file path; please try again.");
+			return false; 
+		}
+
+		if(iDot > 0) {
+			var aUpload = sUpload.split(".");
+			var extValue = aUpload[aUpload.length-1];
+			extValue = extValue.toLowerCase();
+			if ((extValue == "jpg") || (extValue == "jpeg") || (extValue == "gif") || (extValue == "png")) {
+				//valid image, do nothing
+			}
+			else {
+				alert("Profile images must be JPG/JPEG, GIF or PNG format; please select another file and try again.");
+				return false;
+			}
+		}
+	}
+
+
+	if (checkBlankField(document.forms['editprofile'].boxname, "Profile Box Title") == 0) { return false; }
+	if (checkBlankField(document.forms['editprofile'].displayname, "Display Name") == 0) {return false; }
+	var freetext = dojo.string.trim(document.forms['editprofile'].freetext.value);
+	document.forms['editprofile'].freetext.value = freetext;
+	var tags = dojo.string.trim(document.forms['editprofile'].tags.value);
+	document.forms['editprofile'].tags.value = tags;
+	var tags = dojo.string.trim(document.forms['editprofile'].tags.value);
+	document.forms['editprofile'].tags.value = tags;
+	var email = dojo.string.trim(document.forms['editprofile'].email.value);
+	document.forms['editprofile'].email.value = email;
+
+	dojo.io.iframe.send({
+		url: "process_file.php?v=pro",
+		method: "post",
+		handleAs: "text",
+		form: dojo.byId("prform"),
+		load: function(data) {
+			if (data == "exists") {
+				alert("Your profile shortcut was not saved because its already in use by another user.");
+				dijit.byId('dlg').hide();
+				window.location.reload();
+			}
+			else {
+				var dd_array=data.split("#@#@");
+				var sid = parseInt(dd_array[0]);
+				var fid = parseInt(dd_array[1]);
+				
+				if (sid == 0) { window.location.reload(); }
+				else { dijit.byId('dlg').hide(); getUpdatedProfile(sid); }
+			}
+		}
+	});
+}
+
+// mode = vote for voting, mode = view for just viewing results
+function submitPoll(bid,mode) { 
+	var ovalue;
+	var fname = "poll"+bid;
+	var pname = "polloption"+bid;
+	var felem = eval("document."+fname+"."+pname+".length");
+	for (var i=0; i < felem; i++) {
+	   if (eval("document."+fname+"."+pname+"[i].checked")) { ovalue = eval("document."+fname+"."+pname+"[i].value");}
+   	}
+
+	if ((mode == "view") || (parseInt(ovalue) >= 0)) {
+
+		dojo.xhrGet ({
+			url: 'process_pollvote.php?mode='+mode+'&bid='+bid+'&oid='+ovalue,
+			load:  callBackSubmitPoll,
+			error: function (error) { alert("Error: " + error);},
+			preventCache: true
+		});		
+	}
+	else { alert ("You must chose an option in order to vote!"); }
+	return false;
+}
+
+function callBackSubmitPoll(data) { 
+	var dd_array=data.split("<@s#>");
+	var boxid = parseInt(dd_array[0]);
+	var code = parseInt(dd_array[1]);
+	var totalvotes = parseInt(dd_array[2]);
+	var hivote = dd_array[3];
+	var parray = dd_array[4];
+	
+	var outputl = "";
+	var hipct =  Math.round( (hivote / totalvotes) * 100 * 100) / 100;	
+	var resDiv = document.createElement('DIV');
+
+	presults = parray.split("<#newwen@>"); 
+	for(var ct=0; ct < presults.length; ct++){
+		var online = presults[ct];
+		
+		var lresults = presults[ct].split("#@k#@"); 
+		var opt = lresults[0];
+		var url = lresults[1];
+		var vote = parseInt(lresults[2]);
+		if (vote > 0) { var pct = Math.round( (vote / totalvotes) * 100 * 100) / 100; }
+		else { var pct = 0; }
+		var line = opt + " "+ vote+" votes ("+pct+"%)<BR>";
+		
+		outputl = outputl + line;
+
+		var voteDiv = document.createElement('DIV');
+		voteDiv.className='resdesc';
+		voteDiv.innerHTML = opt+ ': '+vote+" votes";
+		resDiv.appendChild(voteDiv);
+
+		var numberDiv = document.createElement('DIV');
+		if (vote == 0) {
+			numberDiv.innerHTML = '<span class="resdesc" style="padding:5px; padding-left:2px; margin-bottom:10px;"><strong>0%</strong></span>';		
+		}
+		else {
+			numberDiv.style.backgroundImage	= 'url("//lgimages.s3.amazonaws.com/poll_graph.gif")';
+			numberDiv.innerHTML 			= '<span class="resdesc" style="color:#fff; padding:5px; padding-left:2px; margin-bottom:10px;"><strong>'+pct+ '%</strong></span>';	
+			numberDiv.style.width 			= Math.max(30,Math.round(pct/hipct * 200)) + 'px';
+		}
+		voteDiv.appendChild(numberDiv);	
+	}
+	
+	var totalVotesDiv = document.createElement('DIV');
+	totalVotesDiv.className='resdesc';
+	totalVotesDiv.innerHTML = "<strong><i>Total votes: "+totalvotes+"</i></strong><BR>";				
+	resDiv.appendChild(totalVotesDiv);
+
+	var polldiv = "polldiv"+boxid;
+	var smsg = "Thank you for voting!<BR><BR>";
+
+	if (code == -1) {
+		smsg = "It appears you have already voted in this poll, so this vote did not count!<BR><BR>";
+	}
+	if (code == 2) {
+		smsg = '';
+	}
+
+	document.getElementById(polldiv).innerHTML = smsg;
+	document.getElementById(polldiv).appendChild(resDiv);
+	if ((code == 0) || (code == 1) || (code == 2)) {		
+		var o = document.getElementById('pollviewres'+boxid);
+		if (o) {	
+			document.getElementById('pollviewres'+boxid).innerHTML = '<A HREF=\"#\" onclick=\"reloadBox('+myIID+','+myPID+','+mySID+','+boxid+',content_config.myboxshape); return false;\"> Show Poll</A>';
+		}
+	}
+		
+}
+
+function addPoll(op) {					
+	dojo.xhrPost ({
+		url: 'process_content.php?m=poll&pid='+myPID+'&sid='+mySID+'&op='+op,
+		form: 'pollform',
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				myBID = data;
+				dijit.byId('dlg').hide()
+				reloadBox(myIID,myPID,mySID,myBID);
+			}
+			else { alert("There was an error (#54) saving the poll choices; please try again."); }
+		},
+		error: function (error) { alert("Error #55: " + error); }
+	});	
+	return false;		
+}
+
+
+function clearPoll(bid) {
+	dojo.xhrPost ({
+		url: 'process_content.php?m=pollclear&bid='+bid,
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				myBID = data;
+				dijit.byId('dlg').hide()
+				reloadBox(myIID,myPID,mySID,bid);
+			}
+			else {alert("There was an error (#531) clearing the poll results; please try again."); }
+		},
+		error: function (error) {
+			alert("Error #532: " + error);
+		}
+	});	
+}
+
+function cursorXY(e) {
+	if (navigator.appName == "Microsoft Internet Explorer"){
+		cursorX = e.clientX+document.documentElement.scrollLeft;
+		cursorY = e.clientY+document.documentElement.scrollTop;
+	}
+	else {
+		cursorX = e.pageX;
+		cursorY = e.pageY;
+	}
+
+	if (self.innerHeight) // all except Explorer
+	{
+		windowWidth = self.innerWidth;
+		windowHeight = self.innerHeight;
+	}
+	else if (document.documentElement && document.documentElement.clientHeight)
+		// Explorer 6 Strict Mode
+	{
+		windowWidth = document.documentElement.clientWidth;
+		windowHeight = document.documentElement.clientHeight;
+	}
+	else if (document.body) // other Explorers
+	{
+		windowWidth = document.body.clientWidth;
+		windowHeight = document.body.clientHeight;
+	}
+
+
+	if (self.pageYOffset) // all except Explorer
+	{
+		scrollX = self.pageXOffset;
+		scrollY = self.pageYOffset;
+	}
+	else if (document.documentElement && document.documentElement.scrollTop)
+		// Explorer 6 Strict
+	{
+		scrollX = document.documentElement.scrollLeft;
+		scrollY = document.documentElement.scrollTop;
+	}
+	else if (document.body) // all other Explorers
+	{
+		scrollX = document.body.scrollLeft;
+		scrollY = document.body.scrollTop;
+	}
+	return true;
+}
+
+function showLinkDesc(e,content,boxwidth,titleid) {
+	var pointerobj=document.all? document.all["tippointer"] : document.getElementById? document.getElementById("tippointer") : ""
+	var cleancontent = unescape(content);
+	var objName = "descpopup";
+	var objNameTitle = "descpopuptitle";
+	var objNameHtml = "descpopupcontent";
+	var tempX;
+	var tempY;
+	var pointX;
+	var pointY;
+	var lt;
+
+	switch (titleid){
+		case 1: 	lt = lang_mgr_global_description;		break;
+		case 2: 	lt = lang_mgr_global_description;		break;
+		case 3: 	lt = lang_mgr_global_more_information;	break;
+		case 4: 	lt = lang_mgr_global_description;		break;
+		case 5: 	lt = lang_mgr_global_summary;			break;
+		case 6: 	lt = lang_mgr_global_summary;			break;
+		default:	lt = lang_mgr_global_description;		break;
+	}
+	dojo.byId(objNameTitle).innerHTML = '<h6>' + lt + '</h6>';
+
+	cursorXY(e);
+	cursorX +=10;
+	cursorY +=8;
+	
+	tempX = cursorX-14;
+	tempY = cursorY+21;
+	tempX = tempX+"px";
+	tempY = tempY+"px";
+	cursorX = cursorX+"px";
+	cursorY = cursorY+"px";
+	
+	dojo.byId(objName).style.width = boxwidth+"px";		
+	dojo.byId(objName).style.top = tempY;
+	dojo.byId(objName).style.left = tempX;				
+		
+	dojo.byId(objNameHtml).innerHTML = cleancontent;
+		
+	pointerobj.style.left = cursorX;				
+	pointerobj.style.top = cursorY;
+	pointerobj.style.visibility="visible"
+	dojo.byId(objName).style.visibility = 'visible';
+
+
+	// LEAVE FOR POSSIBLE FUTURE INCLUSION - PROBLEM NOW IS THAT IT FLICKERS IN IE6
+	//	dojo.lfx.fadeShow(pointerobj, 700).play(); 
+	//	dojo.lfx.fadeShow(document.getElementById(objName), 700).play();
+	return false;
+}
+
+function hideLinkDesc() {
+	dojo.byId("descpopup").style.visibility = 'hidden';
+	dojo.byId("tippointer").style.visibility = 'hidden';
+	return false;
+}
+
+function hideAlert(objName,clength) {
+	if (!(clength)) {var clength = 500; }
+	objNameHtml = objName + "content";
+	dojo.byId(objName).style.visibility='hidden';
+	dojo.byId(objNameHtml).innerHTML = "Loading data";
+	return false;
+}
+
+function closeAlert(objName) {
+	objNameHtml = objName + "content";
+	dojo.lfx.fadeHide(document.getElementById(objName),500,dojo.lfx.easeIn,function() {
+		if ((objName != "divsubjects") && (objName != "divaccounts"))  {
+			document.getElementById(objNameHtml).innerHTML = "&nbsp;";
+		}		
+	}).play();
+
+	for (f = 0; f < document.forms.length; f++) {
+		var elements = document.forms[f].elements;
+		// looping through all elements on certain form
+		for (e = 0; e < elements.length; e++) {
+			if (elements[e].type == "select-one") { elements[e].style.visibility = 'visible'; }
+		}
+	}
+	return false;
+}
+
+function fillCurrentDate(myfield) {
+	now = new Date();
+	var year = now.getYear();
+	if (year < 1000)  { year = year + 1900 } ;
+	
+	var ms = new String (now.getMonth()+1);
+	var ds = new String(now.getDate()); 
+	if ( ms.length == 1 ) {ms = "0" + ms;} // Add leading zeros to month and date
+	if ( ds.length == 1 ) {ds = "0" + ds;} 
+	
+	myfield.value = ms + '-' + ds + '-' +  year;
+	return false;
+}
+
+// lg_save_event is also used for modifying event, by passing "edit" as mode parameter. For adding an event, pass "new" paramter
+function lg_save_event(op) {
+	if (checkBlankField(document.eventform.eventdate,"Date") == 0) {return false;}
+	if (checkBlankField(document.eventform.eventname,"Event Title") == 0) {return false;}
+	if (checkBlankField(document.eventform.descshort,"Description") == 0) {return false;}
+
+	var desclong = dojo.string.trim(document.eventform.desclong.value);
+	document.eventform.desclong.value = desclong;
+
+	// check the URL and format it properly
+	var eventurl = dojo.string.trim(document.eventform.eventurl.value);
+	if (eventurl != "") {
+		if (!validateRegEx(eventurl, 'url', false)) { document.eventform.eventurl.value = "http://" + eventurl; }
+		else { document.eventform.eventurl.value = eventurl;}
+	} 
+	else { 
+		document.eventform.eventurl.value = ""; 
+	}
+	
+	dojo.xhrPost ({
+		url: '/process_content.php?m=evt&pid='+myPID+'&sid='+mySID+'&op='+op,
+		form: 'edform',
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				myBID = data;
+				dijit.byId('dlg').hide()
+				reloadBox(myIID,myPID,mySID,myBID,myboxshape);
+			}
+			else {alert("There was an error writing the Event - Error #50 Pleaase try this operation again."); }
+		},
+		error: function (error) {
+			alert("Error #51: " + error);
+		}
+	});
+}
+
+function addDelicious(mode) {
+	if (checkBlankField(document.deliciousform.duser,"Delicious User Name") == 0) {return false;}
+	if (document.deliciousform.showcount.checked == true) { document.deliciousform.showcountvalue.value = 1;}
+
+	changeButtonDiv();
+	dojo.xhrPost ({
+		url: 'process_content.php?m=delic&pid='+myPID+'&sid='+mySID,       
+		form: 'dlform',
+		load: function (data) {
+			if (parseInt(data) > 0) { window.location.reload();}
+			else {alert("There was an error writing the new link! Pleaase try this operation again."); }
+		},
+		error: function (error) {	alert("Error #11: " + error); }
+	});
+}
+
+function addBook(bookid) {
+	var op;
+	if (bookid == '0') { op = 'new'; } else { op = 'edit'; }
+	
+	if (checkBlankField(document.bookform.title,"Book Title") == 0) {return false;}
+
+	var desc = dojo.string.trim(document.bookform.description.value);
+	document.bookform.description.value = desc;
+
+	// check the URL and format it properly
+	var bookurl = dojo.string.trim(document.bookform.url.value);
+	if (bookurl != "") {
+		
+		//there is a problem saving URLs that contain double quotes, which is not a valid URL character but browser seem to handle properly
+		//to get around this we should encode any quotes within the URL here.  we use a REGEX value to replace all instances.
+		bookurl = bookurl.replace(/"/g, '%22');
+
+		if (!validateRegEx(bookurl, 'url', false)) { document.bookform.url.value = "http://" + bookurl;}
+		else { document.bookform.url.value = bookurl;}
+		
+		//check to see if they included the proxy prefix at the front of the URL
+		if (document.bookform.proxystr.value != "") {
+			if (document.bookform.url.value.indexOf(document.bookform.proxystr.value) >= 0) {
+				
+				var conf = confirm("The URL you have entered is setup to pass through your proxy server.\n\nClick OK to save your link as-is, or click Cancel if you would like to use the 'proxy' checkbox option instead.");
+				if (conf == false) {
+					var newval = document.bookform.url.value;
+					newval = newval.replace(document.bookform.proxystr.value, "");
+					document.bookform.url.value = newval;
+					document.bookform.proxy.checked = true;
+					alert("Good choice! We have removed the proxy prefix from your URL and selected the 'proxy' option instead.\n\nPlease close this message, review the changes to make sure they are correct, and then try saving your link again.");
+					return false;
+				}
+			}
+		}
+
+	} 
+	else { 
+		document.bookform.url.value = "";	
+	}
+
+	dojo.xhrPost ({
+		url: '/process_content.php?m=book&pid='+myPID+'&sid='+mySID+'&op='+op,
+		form: 'bookform',
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				myBID = data;
+				dijit.byId('dlg').hide();
+				reloadBox(myIID,myPID,mySID,myBID);
+			}
+			else {alert("There was an error writing to the database - Error #58 Pleaase try this operation again."); }
+		},
+		error: function (error) {
+				alert("Error #59: " + error);
+		}
+	});
+	
+	return false;
+}
+
+function addRemote(mode) {
+	if (checkBlankField(document.remoteform.scripturl,"Script URL") == 0) {return false;}
+	changeButtonDiv();
+	dojo.xhrPost ({
+		url: 'process_content.php?m=remote&op='+mode+'&pid='+myPID+'&sid='+mySID,       
+		form: 'remsform',
+		load: function (data) {
+			if (parseInt(data) > 0) { 
+				myBID = data;
+				dijit.byId('dlg').hide();
+				reloadBox(myIID,myPID,mySID,myBID);}
+			else {alert("There was an error recording the script! Pleaase try this operation again."); }
+		},
+		error: function (error) {	alert("Error #11: " + error); }
+	});
+}
+
+function checkLinkFormat() {
+	if (checkBlankField(document.addlinkform.linkname,"Link Title") == 0) {return false;}
+
+	//there is a problem saving links that contain double quotes, which is not a valid URL character but browser seem to handle properly
+	//to get around this we should encode any quotes within the URL here.  we use a REGEX value to replace all instances.
+	var linkurl = document.addlinkform.linkurl.value;
+	linkurl = linkurl.replace(/"/g, '%22');
+	
+	if (!validateRegEx(linkurl, 'url2', true)) { document.addlinkform.linkurl.value = "http://" + linkurl; }
+	else { document.addlinkform.linkurl.value = linkurl; }
+	
+	return true;
+}
+						
+function addLink() {
+	if (checkLinkFormat()) {
+		
+		//check to see if they are trying to link to aecontent on accident; its nice to block this whenever possible
+		if (document.addlinkform.linkurl.value.indexOf("aecontent" ) > 0) {
+			alert("The LibGuides URL you have entered points to a page that is only visible to guide owners and editors.\n\nPlease replace 'aecontent.php' with 'content.php' in your URL - this will make the link available to all your site visitors."); return false;
+		}
+			
+		dijit.byId('nlb').setDisabled(true); 
+		var dsc = document.addlinkform.descshort.value;  
+		var dscrpl = dsc.replace(/\n/g,"<br/>").replace(/\r/g,""); // replace newline chars with <br>s
+		document.addlinkform.descshort.value = dscrpl;
+		
+		dojo.xhrPost ({
+			url: 'process_links.php?m=new&pid='+myPID+'&sid='+mySID,
+			form: 'alform',
+			load: function (data) {
+				if (parseInt(data) > 0) {
+					myBID = data;
+					dijit.byId('dlg').hide()
+					reloadBox(myIID,myPID,mySID,myBID);
+				}
+				else {alert("There was an error writing the new link; please try again."); 	dijit.byId('nlb').setLabel('Create Link'); dijit.byId('nlb').setDisabled(false);  
+				}
+			},
+			error: function (error) {
+					alert("Error #11: " + error);
+			}
+		});
+
+	} // end if checkLinkFormat
+	else {
+		dijit.byId('nlb').setLabel('Create Link');
+	}
+}
+
+function modLinkedLink(link_id, box_id) {
+    var dsc = document.addlinkform.descshort.value;  // replace newline chars with <br>s
+    var dscrpl = dsc.replace(/\n/g,"<br/>").replace(/\r/g,"");
+    document.addlinkform.descshort.value = dscrpl;
+
+    dojo.xhrPost ({
+            url: 'process_links.php?m=edit_linked&lid=' + link_id + '&bid=' + box_id,
+            form: 'alform',
+            load: function (data) {
+                    if (parseInt(data) > 0) {
+                            myBID = data;
+                            dijit.byId('dlg').hide()
+                            reloadBox(myIID,myPID,mySID,myBID);
+                    }
+                    else {alert("Error editing the link. Please try again.");dijit.byId('btnModLinkedLink').setLabel('Save Changes');dijit.byId('btnModLinkedLink').setDisabled(false);  
+                    }
+            },
+            error: function (error) {
+                            alert("Error #11: " + error);
+            }
+    });
+}
+
+function addLinkedLink() {
+	dojo.xhrPost ({
+		url: 'process_links.php?m=linked&pid='+myPID+'&sid='+mySID+'&iid='+myIID,
+		form: 'rulform',
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				myBID = data;
+				dijit.byId('dlg').hide()
+				reloadBox(myIID,myPID,mySID,myBID);
+			}
+			else {alert("Error writing the new link. Please try again.");dijit.byId('nlb').setLabel('Reuse Link'); dijit.byId('nlb').setDisabled(false);  
+			}
+		},
+		error: function (error) {
+				alert("Error #11: " + error);
+		}
+	});
+}
+
+function addLinkedBook() {
+	dojo.xhrPost ({
+		url: 'process_links.php?m=linkedbook&pid='+myPID+'&sid='+mySID+'&iid='+myIID,
+		form: 'rubform',
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				myBID = data;
+				dijit.byId('dlg').hide()
+				reloadBox(myIID,myPID,mySID,myBID);
+			}
+			else {alert("Error writing the new book. Please try again.");dijit.byId('nlb').setLabel('Reuse Book'); dijit.byId('nlb').setDisabled(false);  
+			}
+		},
+		error: function (error) { alert("Error #1198: " + error); }
+	});
+}
+
+function addLinkedDoc() {
+	dojo.xhrPost ({
+		url: 'process_misc.php?m=linkeddoc',
+		form: 'rdocform',
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				myBID = data;
+				dijit.byId('dlg').hide()
+				reloadBox(myIID,myPID,mySID,myBID,myboxshape);
+			}
+			else {alert("Error linking documents. Please reload page and try again.");  
+			}
+		},
+		error: function (error) {
+				alert("Error #11: " + error);
+		}
+	});
+}
+
+function modLink() {     
+	if (checkLinkFormat()) {		
+		
+		//check to see if they are trying to link to aecontent on accident; its nice to block this whenever possible
+		if (document.addlinkform.linkurl.value.indexOf("aecontent" ) > 0) {
+			alert("The LibGuides URL you have entered points to a page that is only visible to guide owners and editors.\n\nPlease replace 'aecontent.php' with 'content.php' in your URL - this will make the link available to all your site visitors.");
+			return false;
+		}
+		
+		//if the serials solutions source id field is present make sure its not blank
+		if ((document.addlinkform.srcid) && (document.addlinkform.srcid.value == '')) {
+			alert("The Serials Solutions Database Code cannot be left blank; please provide a database code and try again.");
+			return false;
+		}
+
+		//check to see if they included the proxy prefix at the front of the URL
+		if (document.addlinkform.proxystr.value != "") {
+			if (document.addlinkform.linkurl.value.indexOf(document.addlinkform.proxystr.value) >= 0) {
+				
+				var conf = confirm("The URL you have entered is setup to pass through your proxy server.\n\nClick OK to save your link as-is, or click Cancel if you would like to use the 'proxy' checkbox option instead.");
+				if (conf == false) {
+					var newval = document.addlinkform.linkurl.value;
+					newval = newval.replace(document.addlinkform.proxystr.value, "");
+					document.addlinkform.linkurl.value = newval;
+					document.addlinkform.proxyurl.checked = true;
+					dijit.byId('nlb').setLabel('Modify Link');
+					alert("Good choice! We have removed the proxy prefix from your URL and selected the 'proxy' option instead.\n\nPlease close this message, review the changes to make sure they are correct, and then try saving your link again.");
+					return false;
+				}
+			}
+		}
+		
+		var dsc = document.addlinkform.descshort.value;  // replace newline chars with <br>s
+		var dscrpl = dsc.replace(/\n/g,"<br/>").replace(/\r/g,"");
+		document.addlinkform.descshort.value = dscrpl;
+
+		dijit.byId('nlb').setDisabled(true); 
+		dojo.xhrPost ({
+		url: 'process_links.php?m=edit&pid='+myPID+'&sid='+mySID,
+		form: 'alform',
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				myBID = data;
+				dijit.byId('dlg').hide()
+				reloadBox(myIID,myPID,mySID,myBID);
+			}
+			else {alert("Error modifying the link! Pleaase try this operation again."); dijit.byId('nlb').setLabel('Modify Link'); dijit.byId('nlb').setDisabled(false);  }
+		},
+		error: function (error) { alert("Error #11: " + error);}
+		});
+	} // end if checkLinkFormat
+	return false;
+}
+
+function addContentBox() { 
+	if (checkBlankField(document.addboxform.boxtype,"Box Type") == 0) { return false; }
+	if (checkBlankField(document.addboxform.boxtitle,"Box Title") == 0) { return false; }
+	dojo.xhrPost ({
+		url: 'process_box.php?m=create&iid='+myIID+'&pid='+myPID+'&sid='+mySID,   
+		form: 'addboxform',
+		load: cbAddContentBox,
+		error: function (error) { alert("Create Box Error: " + error); }
+	});
+}
+
+function reuseContentBox() {
+	if ((!document.reuseboxform.cb) || (document.reuseboxform.cb.value == 0)) { alert("Please select the box you want to reuse and try again."); return false; }
+	if (checkBlankField(document.reuseboxform.boxtitle,"Box Title") == 0) { return false; }
+	dojo.xhrPost ({
+		url: 'process_box.php?m=create&iid='+myIID+'&pid='+myPID+'&sid='+mySID,   
+		form: 'reuseboxform',
+		load: cbAddContentBox,
+		error: function (error) { alert("Reuse Box Error: " + error); }
+	});
+}  
+  
+function modContentBox() {     
+	if (checkBlankField(document.forms['editboxform'].boxtitle, "Box Title") == 0) {return false; }
+	
+	changeButtonDiv();
+	dojo.xhrPost ({
+		url: 'process_box.php?m=mod&pid='+myPID,
+		form: 'editboxform',
+		load: function (data) {
+			if (data > 0) {	
+				myBID = data;			
+				reloadBox(myIID,myPID,mySID,myBID,myboxshape);			
+				dijit.byId('dlg').hide();
+			}
+			else { 
+				alert("Error modifying Box - Error #33. Please reload the page and try again!");
+			}
+		},
+		error: function (error) {
+			alert("Error #34: " + error);
+		}
+	});
+	return false;
+}
+
+function boxColorDefaults(form) {
+	form.bheader.value	= '#';
+	form.tcolor.value 	= '#';
+	form.bborder.value 	= '#';
+	form.bback.value 	= '#';
+	return false;
+}
+
+// addFile is used for adding and modifying Files to boxes. paramater false is passed when adding new file, true is passed when editing
+function addFile(allowEmptyFile, mode) {
+	var mode_label = ( mode == 'modify' ? 'Modify Document' : 'Save Document' );
+	var file_elt = document.getElementById('filepath');
+	
+	if (document.addfileform.filename.value == "") {
+		alert("Document Title can not be blank!"); dijit.byId('nlb').setLabel(mode_label); dijit.byId('nlb').setDisabled(false);  return false;
+	}
+	var sUpload = dojo.string.trim(document.addfileform.filepath.value);
+	var sDesc = dojo.string.trim(document.addfileform.filedesc.value);
+	document.addfileform.filedesc.value = sDesc;
+	
+	if ((!allowEmptyFile) && (sUpload=="")) {
+		alert("You must select a file on your computer before you can continue."); 
+		dijit.byId('nlb').setLabel(mode_label); dijit.byId('nlb').setDisabled(false);  return false; 
+	}
+	dojo.io.iframe.send({
+		url: "process_file.php?v=doc",
+		method: "post",
+		handleAs: "text",
+		form: dojo.byId("dfform"),
+		load: function(data){
+			if (data > 0) {	
+				myBID = data;			
+				reloadBox(myIID,myPID,mySID,myBID,myboxshape);			
+				dijit.byId('dlg').hide();
+			}
+			else {
+				dijit.byId('nlb').setLabel(mode_label);
+				dijit.byId('nlb').setDisabled(false);
+				
+				// Display the error message and clear the file field.
+				addFile_setUploadMessage('There has been an error uploading your file. Please make sure your file size is under the specified limit and try again.');
+				//file_elt.value = '';
+				return false;
+			}
+		}
+	});
+}
+
+function toggleSecureFile(val) {
+	if (val) {
+		document.getElementById('secure_file_div').style.display = 'block';
+	}
+	else {
+		document.getElementById('secure_file_div').style.display = 'none';
+		document.addfileform.password.value = '';
+	}
+}
+
+function addFile_setUploadMessage(msg) {
+	var message_elt = document.getElementById('upload_message');
+	
+	if ( message_elt != null ) {
+		message_elt.innerHTML = msg;
+	}
+}
+
+function addNewPage(pid) {
+	var success = 0;
+	
+	if (checkBlankField(document.addedit_page.newname, "Page Name") == 0) { return false; }
+	
+	var url = dojo.string.trim(document.addedit_page.url.value);
+	document.addedit_page.url.value = url;
+
+	//validate the slug
+	if (!validateRegEx(document.addedit_page.slug.value, 'friendly_url', true)) {
+		alert(msg_friendly_url_invalid);
+		return false;
+	}
+	
+	//if a url was provided, give them a chance to go back and fix their URL if it was not absolute
+	if (!validateRegEx(url, 'url', true)) {
+		if (!confirm("You have provided a relative URL, which should only be used when linking to another page within this system. To link to an external website please click Cancel and provide an absolute URL that starts with a valid protocol (http, https, ftp, rtsp, etc).")) {
+			return false;
+		}
+	}
+
+	dojo.xhrPost ({
+		url: '/process_page.php?m=add&pid='+pid,
+		form: 'addedit_page',
+		load: function (data) {
+			if (parseInt(data) == -2) { location = "aecontent.php?pid="+pid; return false; }
+			if (parseInt(data) > 0) { location = "aecontent.php?pid="+pid+"&sid="+data; }
+			else if (data == 'dupe') { alert(msg_friendly_url_in_use); return false; }
+			else { alert("Error writing the page to the database - Error #02. Please reload the page and try again!");}
+		},
+		error: function (error) {
+			alert("Error #03: " + error);
+		}
+	});
+}   
+				
+function modPage() {
+	var success = 0;
+	if (document.addedit_page.subjecttomod.value == "-1") {
+		alert ("Please select the page you would like to change");
+		return false;	
+	} 
+	
+	if (checkBlankField(document.addedit_page.newname, "Page Name") == 0) { 
+		return false; 
+	}
+
+	//validate the slug
+	if (!validateRegEx(document.addedit_page.slug.value, 'friendly_url', true)) {
+		alert(msg_friendly_url_invalid);
+		return false;
+	}
+	
+	var url = dojo.string.trim(document.addedit_page.url.value);
+	document.addedit_page.url.value = url;
+	
+	//give them a chance to go back and fix their URL if it was not absolute
+	if (!validateRegEx(url, 'url', true)) {
+		if (!confirm("You have provided a relative URL, which should only be used when linking to another page within this system. To link to an external website, please click Cancel and provide an absolute URL that starts with a valid protocol (http, https, ftp, rtsp, etc).")) {
+			return false;
+		}		
+	}
+
+	dojo.xhrPost ({
+		url: '/process_page.php?m=mod',
+		form: 'addedit_page',
+		load: function (data) {
+			if (data == 'dupe') { alert(msg_friendly_url_in_use); return false; }
+			else if (data > 0) { window.location.reload();}
+			else { alert("Error editing page - error #04. Please reload the page and try again!");}
+		},
+		error: function (error) { alert("Error #05: " + error); }
+	});
+}   
+
+function togglePageUrl(val) {
+	if (val) {
+		document.getElementById('page_redirect_div').style.display = 'block';
+	}
+	else {
+		document.getElementById('page_redirect_div').style.display = 'none';
+		document.addedit_page.url.value = '';
+		document.addedit_page.target.checked = false;
+	}
+}
+
+function delPage() {
+	if (document.delsubject.subjecttodel.value == 0) {
+		alert("Please select the page you would like to delete and try again.");
+		return false;	
+	}
+	if (confirm("Deleting this page will delete all the content on the page as well as any linked copies added to other pages.\nWould you like to continue?")) {					
+		dojo.xhrPost ({
+			url: '/process_page.php?m=del',
+			form: 'delsubject',
+			load: function (data) {
+				if (data > 0) {	location = 'aecontent.php?pid='+document.delsubject.pid.value; }
+				else { alert("Error deleting page - error #06. Please reload the page and try again!");}
+			},
+			error: function (error) { alert("Error #07: " + error);}
+		});
+	}
+}   
+		
+function demotePage() {
+	//check if the user selected the illegal combo
+	var tab1 = document.movetabsform.movetab1.value;
+	var tab2 = document.movetabsform.movetab2.value;
+	var pid = document.movetabsform.pidfortabs.value;
+	if ((tab1 == 0) || (tab2 ==0) || (tab1 == tab2)) {alert("That selection is not valid; please try again."); return false;}
+	
+	dojo.xhrPost ({
+		url: 'process_guide.php?m=demote_page',
+		form: 'movetabsform',
+		load: function (data) {
+			if (data == 1) { window.location.reload(); }
+			else { alert("Error #808 while moving the top-level page; please reload the page and try again!"); }
+		},
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});
+}
+
+function promotePage() {
+	//check if the user selected the illegal combo
+	var tab3 = document.movetabsform.movetab3.value;
+	var tab4 = document.movetabsform.movetab4.value;
+	if ((tab3 == 0) || (tab4 ==0) || (tab3 == tab4)) {alert("That selection is not valid; please try again."); return false;}
+
+	dojo.xhrPost ({
+		url: 'process_guide.php?m=promote_page',
+		form: 'movetabsform',
+		load: function (data) {
+			if (data == 1) { window.location.reload(); }
+			else { alert("Error #08 while moving the sub-page; please reload the page and try again!"); }
+		},
+		error: function (error) { alert("Error #09: " + error);}
+	});
+}
+
+function editVideoBox(m) { 
+	if (checkBlankField(document.forms['editvideoform'].embedurl, "Embed Code") == 0) { 
+		return false; 
+	}
+	else {
+		dojo.xhrPost ({
+			url: '/process_content.php?m=vid&op='+(m == 0 ? 'new' : 'edit')+'&pid='+myPID+'&sid='+mySID+'&iid='+myIID,       
+			form: 'evform',
+			load: function (data) {
+				if (data > 0) {
+					//if the code contains a script tag reload the entire page that way the new content is rendered
+					if (document.forms['editvideoform'].embedurl.value.toLowerCase().indexOf('<script') != -1) {
+						window.location.reload();
+					}
+					//else, we can reload just the box and close the dialog
+					else {		
+						reloadBox(myIID,myPID,mySID,data,myboxshape);
+						dijit.byId('dlg').hide();
+					}
+				}
+				else { 
+					alert("Error #41 writing Video to the database . Please reload the page and try again!");
+				}
+			},
+			error: function (error) {
+				alert("Error #42: " + error);
+			}
+		});
+	}
+}   
+
+function addRssFeed(o) {     
+	if (!(checkBlankField(document.addfeedform.feedurl, "Feed URL"))) { return false; }
+	if (document.addfeedform.feedurl.value.toLowerCase().substr(0, 4) != "http") {
+		alert("Please enter a valid feed URL starting with http:// or https:// - other protocols are not supported at this time.");
+		return false;
+	}
+	dojo.xhrPost ({
+		url: 'process_content.php?m=rss&iid='+myIID+'&pid='+myPID+'&sid='+mySID+'&op='+o,       
+		form: 'rfform',
+		load: function (data) {
+			if (data > 0) {	
+					myBID = data;
+					
+                    // Reload the box dynamically if this ia an edit (since the RSS JS includes will be present in the page).
+                    // Otherwise (if it's a new feed) reload the page in case it's the only feed on the page (since the includes won't be present).
+                    if ( o == 'e' ) {
+                        reloadBox(myIID,myPID,mySID,myBID,myboxshape);
+                        dijit.byId('dlg').hide();
+                    } else {                    
+                        document.location.reload();
+                    }
+			}
+			else { alert("Error saving RSS information to the database - please reload the page and try again!");}
+		},
+		error: function (error) {
+			alert("addRssFeed error: " + error);
+		}
+	});
+}	
+
+function reloadBox(iid,pid,sid,bid,shape) {   
+	dojo.xhrGet ({
+		url: 'wb.php?qs=1&mode=edit&iid='+iid+'&pid='+pid+'&bid='+bid+'&sid='+sid,
+		load: function (data) {
+			try {
+                document.getElementById('wrapbox' + bid).innerHTML = data;
+            } catch (e) {
+                // The most likely cause of an error here is a linked box in a guide that was copied from a template.
+                // Instead of handling a complex case of passing the correct boxid around we'll just refresh the page
+                // to reflect the change.
+                window.location.reload();
+            }
+			if (shape === undefined) { 
+				var x=0; 
+			} 
+			else if (shape == 'r') { 
+				if ((versionIE() > 0) && (versionIE() < 9)) {
+					try {
+                        jQuery('div.roundbox').corner('5px');
+                    } catch (e) {}
+				}
+			}
+            createBoxMenu('editbox' + bid);
+		},
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});	
+}
+function deleteGuide(pid,key,guide_name) {
+	if (pid != -1) {
+		if (confirm("Are you sure to want to permanently delete the following guide - and all its content - from the system?\n\n\tID:          " + pid + "\n\tName:   " + guide_name + "\n")) {
+			changeButtonDiv();
+			dojo.xhrPost ({
+				url: 'process_guide.php?m=delguide&pid='+pid+'&key='+key,       
+				form: 'pids',
+				load: function (data) {
+					if (parseInt(data) == 1) { alert("The guide was deleted from the system!"); location = "admin.php"; }
+					else { alert("There was an error deleting the guide; please try again.");}
+				},
+				error: function (error) {	alert("Error #9: " + error);}
+            });
+		} 
+		else { 
+			alert ("Phew, that was a close call - your guide will live to see another day!");
+		}
+	}
+	return false;
+}
+
+function addNewGuide() {
+    var button = dijit.byId('btn_create_guide');
+    
+    button.attr('disabled', true);
+    button.attr('label', 'Creating guide...');
+    
+	//if the user wanted to start from scratch, clear out the gtemplate value
+	if (document.addguideform.tradio[0].checked==true) {
+		document.addguideform.gtemplate.value = "0";	
+	}
+	
+	//if the user wanted to use a template, make sure that a PID value has been selected
+	if (document.addguideform.tradio[1].checked==true) {
+		var pidval = dojo.string.trim(document.addguideform.gtemplate.value);
+		if ((pidval == "") || (pidval == "0")) {
+			alert("Please use the search box to select the guide you wish to use as a template. If you do not wish to use a template, please select the 'start fresh' option at the top of the form.");
+            button.attr('disabled', false);
+            button.attr('label', 'Create Guide');
+			return false;
+		}
+	}
+	
+	//make sure a guide name was provided
+	if (dojo.string.trim(document.addguideform.pname.value) == "") {
+		alert("Please provide a title for your guide and then submit the form again.");
+        button.attr('disabled', false);
+        button.attr('label', 'Create Guide');
+		return false;
+	}
+	
+	//make sure we have a valid redirect URL in place
+	if (!validateRegEx(document.addguideform.redirect_url.value, 'url3', true)) {    
+		alert("Sorry, that is an invalid 'Redirect URL'.\n\nYou must enter a full URL, beginning with http:// or https://.\n\n");
+        button.attr('disabled', false);
+        button.attr('label', 'Create Guide');
+		return false;
+	}
+	
+	//if the user entered a redirect URL lets make sure that is what they were looking to do before we let them continue
+	if (dojo.string.trim(document.addguideform.redirect_url.value) != "") {
+		var msg = "You have provided a Redirect URL for your guide, which means this guide will not contain its own content. Any visitors to this guide will be immediately redirected to the target URL.\n\nIf that is not what you intended, please click Cancel to go back and remove the Redirect URL from your guide.";
+		if (confirm(msg) == false) {
+            button.attr('disabled', false);
+            button.attr('label', 'Create Guide');
+            return false;
+        }
+	}
+	
+	//still here, post the form
+	dojo.xhrPost ({
+		url: 'process_guide.php?m=new',
+		form: 'ngform',
+		load: function (data) {
+			if (data > 0) {	location = "/aecontent.php?pid="+data;}
+			else { alert("Error writing to the database. Please reload the page and try again!");}
+		},
+		error: function (error) { alert("Error: #678" + error); }
+	});
+	
+	return false;
+}
+
+function save_guide_information(pid, iid) {
+	var pname 			= dojo.string.trim(document.chguideform.pname.value);
+	var pdesc 			= dojo.string.trim(document.chguideform.pdesc.value);
+	var redirect_url 	= dojo.string.trim(document.chguideform.redirect_url.value);
+	var friendly_url 	= dojo.string.trim(document.chguideform.slug.value);
+    
+	//make sure that the guide title is not blank
+	if (pname == "") {
+		alert("The Guide Title cannot be left blank.");
+		return false;
+	}
+	
+	//if a redirect URL was provided, make sure its a valid URL
+    if (!validateRegEx(redirect_url, 'url3', true)) {
+        alert("Sorry, your Redirect URL is not valid. You must enter a full URL, beginning with http:// or https://.");
+        return false;
+    }
+	
+	//if a slug was provided, make sure its a valid format
+    if (!validateRegEx(friendly_url, 'friendly_url', true)) {
+        alert(msg_friendly_url_invalid);
+        return false;
+    }	
+        
+	// Don't allow the Redirect and Friendly names to be the same.
+	if ((friendly_url != "") && (redirect_url != "")) {
+		var full_friendly_url = 'http://' + document.location.hostname + '/' + friendly_url;
+		
+		if ( full_friendly_url.toLowerCase() == redirect_url.toLowerCase() ) {
+			alert('The "Redirect URL" (Basic Settings) cannot be the same as the "Friendly URL" (Advanced Settings).\n\nPlease change one of the URLs and re-submit.');
+			return false;
+		}
+	}
+	
+	//make sure the tags are valid
+	var tagstemp = dojo.string.trim(document.chguideform.gtags.value);
+	var tags = tagstemp.toLowerCase();
+	document.chguideform.gtags.value = tags;
+	if (tags.indexOf(' +') != -1) { alert ("Your individual tags can not start with a + character"); return false;}
+	if (tags.indexOf(',+') != -1) { alert ("Your individual tags can not start with a + character"); return false;}
+
+	//still here, disable the save button and then post the changes
+    var save_button = dijit.byId('btn_save');
+    
+	save_button.attr('disabled', true);
+    save_button.attr('label', 'Saving...');
+    
+	dojo.xhrPost ({
+		url: '/process_guide.php?m=save_guide_information',
+		form: 'chguideform',
+		load: function (data) {
+			var err = false;
+			if (data == -2) { alert("An error occurred while updating the guide information; please reload the page and try again. " + msg_support); err = true; }
+			else if (data == -3) { alert("An error occurred while setting the publication status for your guide; please reload the page and try again. " + msg_support); err = true; }
+			else if (data == -4) { alert("An error occurred while saving the tags for your guide; please reload the page and try again. " + msg_support); err = true; }
+			else if (data == "dupe") { alert(msg_friendly_url_in_use); err = true; }
+			else if (data > 0) { 
+				var post_to_twitter = ( typeof(document.chguideform.cb_post_to_twitter) != 'undefined' ? document.chguideform.cb_post_to_twitter.checked : false);
+				if ( post_to_twitter ) {
+					document.getElementById('chguideform').style.display = 'none';													//hide the main form
+					document.getElementById('twitter_iframe_box').style.display = 'block';										// Display the Tweet box
+					document.getElementById('twitter_iframe').src = document.getElementById('twitter_iframe_url_data').value;	// Load the twitter iframe
+                } 
+				else {
+					window.location.reload(); 
+				}
+			}
+			if (err) {
+                save_button.attr('disabled', false);
+                save_button.attr('label', 'Save');
+            }
+		},
+		error: function (error) {
+			alert("Error: #71" + error);
+		}
+	});
+	return false;
+}   
+
+function changeButtonDiv(bn) {
+	document.getElementById('buttondiv').innerHTML = '&nbsp<img alt=\"Loading\" src=\"http://lgimages.s3.amazonaws.com/loading_dots.gif\" align=\"top\">';
+	return true;
+}
+
+function handleEnter(e, formobj, formfield) {
+	var evtobj=window.event? event : e //distinguish between IE's explicit event object (window.event) and Firefox's implicit.
+	var keycode = evtobj.keyCode;
+	if (keycode == 13) {
+		//they hit enter so do something;
+		eval("document."+formobj+"."+formfield+".focus()");
+		return false;
+	}
+	else { return true; }
+}
+
+function limitFormLength(obj, maxlength){
+	if (obj.value.length > maxlength) {
+		obj.value = obj.value.substring(0, maxlength);
+		alert("You have reached the maximum length of this field - " + maxlength + " characters.");
+		return false;
+	}
+	else {
+		return true;
+	}
+}
+
+function checkBlankField(obj, msg){
+	var fieldvalue = dojo.string.trim(obj.value);
+	obj.value = fieldvalue;
+	if (fieldvalue == "") {
+		alert(lang_mgr_global_field_required_js + ': ' + msg);
+		return 0;
+	}	
+	else {
+		return 1; 
+	}	
+}
+
+function bgC(el,color){
+	if (!color) { var color = '#FFEFCF';}
+	el.style.backgroundColor = color;
+}
+
+function chColor(elem, fgcolor, bgcolor){
+	elem.style.backgroundColor = bgcolor;
+}
+
+function reorderContent(pid,sid,bid,bt) {   
+	dojo.xhrGet ({
+		url: 'links.php?m=ord&pid='+pid+'&bid='+bid+'&sid='+sid+'&bt='+bt,
+		load: function (data) {
+			if (bt == 99) { dojo.byId('boxatt' + pid).innerHTML = data; }
+			else { dojo.byId('boxatt' + bid).innerHTML = data; }
+		},
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});	
+	return false;
+}
+
+function sortContent(ordv,pid,sid,bid,boxtype) {
+	if (ordv == 1) {
+		var vname;
+		var leftlist = dojo.byId("reordlist" + bid);
+		var list = leftlist.getElementsByTagName("li");	
+		var leftorderstr = "";
+		for(i=0;i<list .length;i++) {
+		  leftorderstr += list[i].id;
+		  if(i != list.length-1)
+			leftorderstr += ",";
+		}
+		document.linkorder.lo.value = leftorderstr;
+	}
+
+	dojo.xhrPost ({
+		url: 'process_links.php?m=ord&pid='+pid+'&sid='+sid+'&bid='+bid+'&ov='+ordv+'&boxtype='+boxtype,
+		form: 'olform',
+		load: function (data) {
+			if (navigator.appName == "Microsoft Internet Explorer") { window.location.reload(); }
+			else if (boxtype == 99) { window.location.reload(); }
+			else { reloadBox(myIID,pid,sid,bid,myboxshape); }
+		},
+		error: function (error) { alert("Error #11: " + error);}
+	});
+	return false;
+}
+
+function deleteComment(cid,id,t) {
+	if (confirm("Are you sure you want to delete this comment?")) {
+		dojo.xhrGet ({
+			url: 'comments.php?mode=del&t='+t+'&id=' + id + '&cid=' + cid,		
+			load: function (data) { listComments(id,t,'edit',true); },
+			error: function (error) { alert("Error: " + error);},
+			preventCache: true
+		});	
+	}
+	return false;
+}
+
+function approveComment(cid,id,t) {
+	dojo.xhrGet ({
+		url: 'comments.php?mode=app&t='+t+'&id=' + id + '&cid=' + cid,
+		load: function (data) { listComments(id,t,'edit',true); },
+		error: function (error) { alert("Error: " + error); },
+		preventCache: true
+	});	
+	return false;
+}
+	
+function toggleComments(itemid,t) {
+	dojo.xhrGet ({
+		url: 'comments.php?mode=toggle&t='+t+'&id=' + itemid,		
+		load: function (data) { window.location.reload(); },
+		error: function (error) { alert("Error: " + error); },
+		preventCache: true
+	});	
+	return false;
+}	
+	
+function updateBoxListLinkImport(obj) {
+	dojo.xhrGet ({
+		url: 'process_d.php?mode=linkimport&pid='+obj.value,		
+		load: function (data) {
+			document.getElementById('boxlist').innerHTML = data;
+		},
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});	
+	return false;
+}
+
+function updateBoxList(obj,pid) {
+	dojo.xhrGet ({
+		url: 'process_d.php?mode=boxes&pid='+obj.value,		
+		load: function (data) {
+			document.getElementById('boxlist').innerHTML = data;
+			document.getElementById('cb').style.width = '500px';
+		},
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});	
+	return false;
+}
+
+function updateBoxListAPI(pid) {
+	dojo.xhrGet ({
+		url: 'process_d.php?mode=boxesapi&pid='+pid,		
+		load: function (data) {
+			document.getElementById('boxlist').innerHTML = data;
+		},
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});	
+	return false;
+}
+
+// updates box title when user wants to link or copy a box in add new box screen
+function updateBoxTitle(obj) { 
+	dojo.xhrGet ({
+		url: '/process_d.php?mode=box_title&bid='+obj.value,		
+		load: function (data) { document.reuseboxform.boxtitle.value = data; },
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});
+		
+	return false;
+}
+
+function updateSubjectList(obj) {
+	dojo.xhrGet ({
+		url: 'process_d.php?mode=pages&pid='+obj.value,		
+		load: function (data) {
+			document.getElementById('pagelist').innerHTML = data;
+		},
+		error: function (error) { alert("Error: " + error);},
+		preventCache: true
+	});	
+	return false;
+}
+
+function copyPageCheck(cvalue) {	
+	//determine if we should retrieve the SID value from the text or menu fields
+	var usetxt = false;
+	
+	if (usetxt) {
+		var url = document.copypform.copyurl.value;
+		dojo.xhrGet ({
+			url: 'process_d.php?mode=checkpageurl&url='+escape(url),		
+			load: function (data) {
+				var dd_array=data.split("#@#@");
+				var c = parseInt(dd_array[0]);
+				var msg = dd_array[1];
+				if (c == 0) { alert(msg); return false; } 
+				else { if (confirm(msg)) { copyPage(c); }
+				}
+			},
+			error: function (error) { alert("Error: " + error);},
+			preventCache: true
+		});	
+	}
+	else if (document.copypform.sid) {
+		copyPage(document.copypform.sid.value);		
+	}
+	else {
+		alert("Please select a page from the dropdown menu or paste a valid page URL into the box provided and try again.");
+	}
+	
+	return false;
+}
+
+function copyPage(s) {
+	if ( s != "0" ) {
+		dojo.xhrPost ({
+			url: 'process_page.php?m=copy&sid=' + s,		
+			form: 'copypform',
+			load: function (data) {
+				var dd_array=data.split("#@#@");
+				var pid = parseInt(dd_array[0]);
+				var sid = parseInt(dd_array[1]);
+				if (sid > 1) { location = "aecontent.php?pid="+pid+"&sid="+sid; } 
+				else { alert("Error copying page - error #112. Please reload and try again.");}	
+			},
+			error: function (error) { alert("Error #112: " + error);}
+		});
+		return true;
+	}
+	else {
+        alert('Please select the page you wish to reuse and try again.');
+        return false;	
+	}
+}
+
+function procGuideRole(pid, oid, role) {
+	var newrole = 0;
+	var subform;
+	
+	if (role == 0) { newrole = document.edtform.geditor.value; subform = "edtform"; }
+	else if (role == 1) { newrole = document.cooform.gcoowner.value; subform = "cooform"; }
+	else if (role == 2) { newrole = document.colform.gcollaborator.value; subform = "colform"; }
+	
+	//make sure a user was selected
+	if ((newrole == 0) || (newrole == "")) {
+		if (role == 2) { alert("Please enter the email address of the person you want to add as a collaborator before clicking the button."); return false; }
+		else { alert("Please select a user to assign this role to before clicking the button."); return false; }
+	}
+	
+	//make sure the current owner wasnt selected
+	if (newrole == oid) { alert("You cannot select the current guide owner as a co-owner or editor - please select another user."); return false; }
+
+	//make sure the collab id provided was valid
+	if (role == 2) {
+		if (!validateRegEx(document.colform.gcollaborator.value, 'email', false)) {
+			alert('Please enter a valid email address and try again.');
+			return false;	
+		}	
+	}
+
+	//still here, process the form
+	dojo.xhrPost ({
+		url: '/process_guide.php?m=proced&pid='+pid+'&role='+role,		
+		form: subform,
+		load: function (data) {	
+			if (role == 0) { dojo.byId('editorlist').innerHTML = data; }
+			else if (role == 1) { dojo.byId('coownerlist').innerHTML = data; }
+			else if (role == 2) { 
+				if (data == "accountholder") { alert("There is already a user account in this system for the email address provided, so they should be added as either an Editor or Co-Owner via the provided dropdown menus."); }
+				else if (data == "duplicate") { alert("The email address provided is already listed as a collaborator for this guide."); }
+				else { dojo.byId('collaboratorlist').innerHTML = data; }
+				document.colform.gcollaborator.value = "";
+			}
+		},
+		error: function (error) { alert("Error #39: " + error); }
+	});
+	return true;
+}
+
+function removeEd(pid,id,role) {	
+	dojo.xhrGet ({
+		url: 'process_guide.php?m=removeed&pid='+pid+'&id='+id+'&role='+role,		
+		load: function (data) { 
+			if (role == 0) { dojo.byId('editorlist').innerHTML = data; }
+			else if (role == 1) { dojo.byId('coownerlist').innerHTML = data; }
+			else if (role == 2) { dojo.byId('collaboratorlist').innerHTML = data; }	
+		},
+		error: function (error) {alert("Error: " + error);},
+		preventCache: true
+	});
+	return false;
+}
+
+function userSubmitLink(bid,sid) {
+	var uform="<span class=\"resdesc\">" + lang_mgr_box_usersubmit_instructions + "</span><BR><BR>";
+	uform += "<form method=post id=usform name=usf><input type=hidden name=box value=\"" + bid + "\">";
+	uform += "<input type=hidden name=subj value=\"" + sid + "\">";
+	uform += "<table><TR><TD><span class=\"resdesc\">" + lang_mgr_global_your_name + ":</span><BR>";
+	uform += "<input type=\"text\" name=\"un\" style=\"width:180px\" class=\"inputtext\"></td></TR>";	
+	uform += "<TR><TD><span class=\"resdesc\">" + lang_mgr_global_your_email + ":</span><BR>";
+	uform += "<input type=\"text\" name=\"ue\" style=\"width:180px\" class=\"inputtext\"></td></TR>";	
+	uform += "<TR><TD><span class=\"resdesc\">" + lang_mgr_box_usersubmit_link_title + ":</span><BR>";
+	uform += "<input type=\"text\" name=\"lt\" style=\"width:180px\" class=\"inputtext\"></td></TR>";	
+	uform += "<TR><TD><span class=\"resdesc\">" + lang_mgr_global_url + ":</span><BR>";
+	uform += "<input type=\"text\" name=\"ul\" style=\"width:180px\" class=\"inputtext\"></td></TR>";	
+	uform += "<TR><TD><span class=\"resdesc\">" + lang_mgr_global_description + ":</span><BR>";
+	uform += "<textarea name=\"ud\" rows=\"4\" style=\"width:180px\" class=\"inputtext\" onkeyup=\"return limitFormLength(this, 255);\"></textarea>";
+	uform += "</td></TR>";
+	uform += "<TR><TD><div id=\"buttondiv\"><INPUT style=\"submitbutton\" type=\"button\" value=\"" + lang_mgr_global_submit + "\" onclick=\"usl2()\">";
+	uform += "<INPUT style=\"submitbutton\" type=\"button\" value=\"" + lang_mgr_global_cancel + "\" ";
+	uform += "onclick=\"cancelUserSubmission("+bid+","+sid+");\"></div></TD></TR></table>";
+	document.getElementById('linksubmit_'+bid).innerHTML = uform;
+	return false;
+}
+
+function cancelUserSubmission(bid,sid) {	
+	document.getElementById('linksubmit_'+bid).innerHTML = "<A HREF=\"#\" onclick=\"return userSubmitLink("+bid+","+sid+")\"><IMG alt=\"Add\" SRC=\"http://www.libguides.com/images/additem.gif\" BORDER=\"0\"> " + lang_mgr_global_submit + "</A>";
+}
+
+function usl2() {
+	if (checkBlankField(document.usf.ue, lang_mgr_global_your_email) == 0)			{ return false; }
+	if (checkBlankField(document.usf.lt, lang_mgr_box_usersubmit_link_title) == 0) 	{ return false; }
+	if (checkBlankField(document.usf.ul, lang_mgr_global_url) == 0) 				{ return false; }
+
+	//check the URL and format it properly
+	var linkurl = document.usf.ul.value;
+	if (!validateRegEx(linkurl, 'url', false)) { 
+		document.usf.ul.value = "http://" + linkurl;
+	}
+	else {
+		document.usf.ul.value = linkurl;
+	}
+
+	dojo.xhrPost ({
+		url: 'process_usersubmit.php?m=a',
+		form: 'usform',
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				myBID = data;
+				reloadBox(myIID,myPID,mySID,myBID);
+			}
+			else {alert("There was an error with the user submission  - Error #71. Pleaase reload page and try again."); }
+		},
+		error: function (error) {
+				alert("Error #72: " + error);
+		}
+	});
+}
+
+function refreshBookDialog(lid, auto) {
+	var isbn = document.bookform.isbn.value;
+	isbn = replaceAll(isbn, ' ', '');
+	isbn = replaceAll(isbn, '-', '');
+	document.bookform.isbn.value = isbn;
+	
+	var url = '/process_books.php?m=book_property_array&isbn=' + isbn;
+	
+	if (auto == true) {
+	 	url = url + '&lid=' + lid;
+	}
+	else {
+		document.getElementById('bowker_results').innerHTML = img_loading_src;
+	}
+
+	dojo.xhrGet ({
+		url: url,
+		load: function (data) { 
+			var resp_obj;
+			eval("resp_obj = " + data + ";");
+
+			//if the user clicked the Bowker button load the Bowker data into the basic form, the cover art and the enhanced tab
+			if (auto == false) {
+				if (resp_obj.found == 'true') {
+					if (resp_obj.imgfound == 'true') { document.getElementById('bowker_results').innerHTML = '<span style="color:green;">Success - book information retrieved!</span>'; }
+					else { document.getElementById('bowker_results').innerHTML = '<span style="color:grey;">Book information retrieved - Syndetics cover art is unavailable.</span>'; }
+
+					//if (resp_obj.isbn != '') { document.bookform.isbn.value = resp_obj.isbn; }
+					if (resp_obj.title != '') { document.bookform.title.value = resp_obj.title; }
+					if (resp_obj.author != '') { document.bookform.author.value = resp_obj.author; }
+					if (resp_obj.pubyear != '') { document.bookform.pubyear.value = resp_obj.pubyear; }
+					if (resp_obj.description != '') { document.bookform.description.value = resp_obj.description; }
+					
+					if (resp_obj.imgfound == 'true') {
+						document.getElementById('cover_syn').checked = true;
+						setCoverArt('s', '');
+					}
+
+					document.getElementById('bowker_enhanced_div').innerHTML = img_loading_src;
+					document.getElementById('bowker_enhanced_div').innerHTML = resp_obj.enhanced;
+				}
+				else {
+					document.getElementById('bowker_results').innerHTML = '<span style="color:red;">No matches found - please check the ISBN and try again.</span>';						
+				}
+			}
+		},
+		error: function (error) { },
+		preventCache: true
+	});
+	
+	return false;
+}
+
+function setCoverArt(key, synid) {
+	var isbn = dojo.string.trim(document.bookform.isbn.value);
+	isbn = isbn.replace(' ', '');
+	isbn = isbn.replace('-', '');
+	
+	//if this was a syndetics or amazon request make sure we have a valid isbn
+	if ((key == 's') && (isbn.length != 10) && (isbn.length != 13)) { alert('To retrieve artwork from Syndetics please enter the 10 or 13 digit ISBN for this item and try your selection again.'); return false; }
+	if ((key == 'a') && (isbn.length != 10)) { alert('To retrieve artwork from Amazon please enter the 10 digit ISBN for this item and try your selection again.'); return false; }
+
+	var url = '';
+	if (synid == '') { synid = 'springshare'; }	
+	document.getElementById('current_art').src = 'http://lgimages.s3.amazonaws.com/loading_dots.gif';
+	
+	if (key == 'o') { document.getElementById('cover_div').style.display = 'block'; document.bookform.cover.value = ''; }
+	else { document.getElementById('cover_div').style.display = 'none'; }
+	
+	if (key == 'n') { url = ''; }
+	if (key == 's') { url = 'http://syndetics.com/index.aspx?isbn=' + isbn + '/LC.GIF&client=' + synid; }
+	if (key == 'a') { url = 'http://images.amazon.com/images/P/' + isbn + '.jpg'; }
+	if (key == 'w') { url = 'http://lgimages.s3.amazonaws.com/nc-md.gif'; }
+	if (key == 'b') { url = 'http://lgimages.s3.amazonaws.com/gc-md.gif'; }
+	if (key == 'o') { url = document.bookform.cover.value; }
+
+	document.bookform.cover.value = url;
+	
+	if (url == '') { document.getElementById('current_art').src = 'http://lgimages.s3.amazonaws.com/dot.gif'; }
+	else { document.getElementById('current_art').src = document.bookform.cover.value; }
+	
+	return true;
+}
+
+function setCoverArtUrl(elt) {
+	document.getElementById('current_art').src = elt.value;
+}
+
+function showArtworkHelp(m) {
+	window.open("showhelp.php?m=" + m,null,"height=200,width=400,status=no,toolbar=no,menubar=no,location=no");
+	return false;	
+}
+
+function replaceAll(str, searchTerm, replaceWith, ignoreCase) {
+	var regex = "/" + searchTerm + "/g";
+	if (ignoreCase) { regex += "i"; }
+	return str.replace( eval(regex), replaceWith );
+}
+
+function colorTags() {
+	var links = document.getElementById('tag_list').getElementsByTagName('a');   
+	for (i=0; i<links.length; i++) { 
+		links[i].setAttribute('class', 'tag_unselected'); 
+		links[i].className = "tag_unselected";
+	}
+	
+	var arr = document.chguideform.gtags.value.split(',');
+	for (i=0; i<arr.length; i++) {
+		var val = dojo.string.trim(arr[i]);
+		//if (document.getElementById('tagmy_' + val)) { document.getElementById('tagmy_' + val).setAttribute('class', 'tag_selected'); }
+		if (document.getElementById('tagall_' + val)) { 
+			document.getElementById('tagall_' + val).setAttribute('class', 'tag_selected'); 
+			document.getElementById('tagall_' + val).className = 'tag_selected';
+		}
+	}
+}
+
+function addTag(elt) {
+	var val = elt.innerHTML.replace(/(\r\n|\n|\r)/gm, ' ');	//this replaces the line breaks with spaces
+	val = val.replace('&amp;', '&');						//"&" are returned as &amp; for some reason, so undo that issue here
+	var original = document.chguideform.gtags.value;
+	if (document.chguideform.gtags.value == '') { document.chguideform.gtags.value = val; }
+	else { document.chguideform.gtags.value = document.chguideform.gtags.value + ', ' + val; }
+	
+	if (limitFormLength(document.chguideform.gtags, 255) == false) {
+		document.chguideform.gtags.value = original;	
+	}
+	
+	colorTags();
+	return false;
+}
+
+var tooltip=function(){
+	var id = 'tt';
+	var top = 3;
+	var left = 3;
+	var maxw = 250;
+	// var speed = 10;
+	// var timer = 20;
+	var endalpha = 95;
+	var alpha = 0;
+	var delay = 50;
+	var tt,c,h;
+	var ie = document.all ? true : false;
+ 	return{
+ 		show:function(mode,w){
+   			if(tt == null){
+				tt = document.createElement('div');
+				tt.setAttribute('id',id);
+				//c = document.createElement('div');
+				//c.setAttribute('id',id + 'cont');
+				//tt.appendChild(c);
+				document.body.appendChild(tt);
+				//tt.style.opacity = 0;
+				//tt.style.filter = 'alpha(opacity=0)';
+				document.onmousemove = this.pos;
+  			}
+			tt.style.display = 'block';
+			tt.innerHTML = "Loading help... please wait";
+
+			dojo.xhrGet ({
+				url: 'gethelp.php?m='+mode,
+				load: function (data) {   tt.innerHTML = data; },
+				error: function (error) {alert("Error: " + error);}
+			});			
+
+   			tt.style.width = w ? w + 'px' : 'auto';
+   			if(!w && ie){
+   				tt.style.width = tt.offsetWidth;
+   			}
+			if(tt.offsetWidth > maxw){tt.style.width = maxw + 'px'}
+			h = parseInt(tt.offsetHeight) + top;
+			dojo.fadeIn({node:tt}).play(delay); 
+		},
+		pos:function(e){
+			var u = ie ? event.clientY + document.documentElement.scrollTop : e.pageY;
+			var l = ie ? event.clientX + document.documentElement.scrollLeft : e.pageX;
+			tt.style.top = (u - h) + 'px';
+			tt.style.left = (l + left) + 'px';
+		},
+		hide:function(){
+			dojo.fadeOut({node:tt}).play(delay); 
+		}
+		};
+	}
+();
+		
+var slider=function(){
+	var array=[];
+	var speed=3;
+	var timer=10;
+	return{
+		init:function(t,c){ array=[];
+			var s,ds,l,i;
+			s=document.getElementById(t); ds=s.getElementsByTagName('div'); l=ds.length; i=0;
+			for(i=0;i<l;i++){
+				var d,did; d=ds[i]; did=d.id;
+				if(did.indexOf("header")!=-1){
+					d.onclick=new Function("slider.process(this)");
+				}else if(did.indexOf("content")!=-1){
+					array.push(did.replace('-content',''));
+					d.maxh=d.offsetHeight;
+					if(c==1&&i==1){
+						d.style.display='block';
+					}else{
+						d.style.height='0px';
+						d.style.display='none';
+					}
+				} 
+			}
+		},
+		process:function(d){
+			var cl,i; cl=array.length; i=0;
+			for(i;i<cl;i++){
+				var s,h,c,cd;
+				s=array[i]; h=document.getElementById(s+'-header');
+				c=s+'-content'; cd=document.getElementById(c);
+				clearInterval(cd.timer);
+				if(h==d&&cd.style.display=='none'){
+					cd.style.display='block';
+					this.islide(c,1);
+				}else if(cd.style.display=='block'){this.islide(c,-1)}
+			}
+		},
+		islide:function(i,d){
+			var c,m; c=document.getElementById(i); m=c.maxh; c.direction=d;
+			c.timer=setInterval("slider.slide('"+i +"')",timer);
+		},
+		slide:function(i){
+			var c,m,h,dist; c=document.getElementById(i); m=c.maxh; h=c.offsetHeight;
+			dist=(c.direction==1)?Math.round((m-h)/speed):Math.round(h/speed);
+			if(dist<=1){dist=1}
+			c.style.height=h+(dist*c.direction)+'px';
+			c.style.opacity=h/c.maxh;
+			c.style.filter='alpha(opacity='+(h*100/c.maxh)+')';
+			if(h<2&&c.direction!=1){
+				c.style.display='none';
+				clearInterval(c.timer);
+			}else if(h>(m-2)&&c.direction==1){clearInterval(c.timer)}
+		}
+	};
+}();
+
+function toggleAllComments(pid,type,val) {	
+	dojo.byId('toggleResultDiv').innerHTML = '<img alt=\"Loading\" src=images/loading_lg.gif border=0 />';
+	dojo.xhrGet ({
+		url: 'comments.php?mode=toggle_all&pid='+pid+'&type='+type+'&val='+val,		
+		load: function (data) { dojo.byId('toggleResultDiv').innerHTML = data; },
+		error: function (error) {alert("Error: " + error);},
+		preventCache: true
+	});
+	return false;
+}
+
+function sendFeedback(bid) {
+	var formname = "feedbackform" + bid;
+	var divname = "feedback" + bid;
+	var p = document.forms[formname].pid.value;
+	var s = document.forms[formname].sid.value;	
+
+	//possible automated-spam prevention with a confirm box; commented out per slaven's request on 2012-03-06
+	//if (confirm(lang_mgr_box_feedback_confirm_js) == false) { return false; }
+
+	dojo.byId('feedbutton_' + bid).innerHTML = '<img alt=\"Loading\" src="http://lgimages.s3.amazonaws.com/loading_dots.gif" align="top">';			
+
+	dojo.xhrPost ({
+		url: 'process_d.php?mode=feedback&pid='+p+'&sid='+s+'&bid='+bid,
+		form: formname,
+		load: function (data) {
+			if (parseInt(data) > 0) {
+				dojo.byId(divname).innerHTML =	"<h2 style='color:#696969'>" + lang_mgr_global_thank_you + "</h2>";	}
+			else {alert(lang_mgr_box_feedback_error_js); }
+		},
+		error: function (error) {
+			alert("Error #51: " + error);
+		}
+	});
+	return false;
+}
+
+function toggleAllProfiles(pid,val) {	
+	dojo.byId('toggleResultDiv').innerHTML = '<img alt=\"Loading\" src=images/loading_lg.gif border=0 />';
+	dojo.xhrGet ({
+		url: 'process_guide.php?m=toggle_all_profiles&pid='+pid+'&val='+val,		
+		load: function (data) { dojo.byId('toggleResultDiv').innerHTML = data; },
+		error: function (error) {alert("Error: " + error);},
+		preventCache: true
+	});
+	return false;
+}
+
+function sendGuideAlert() {
+	dojo.xhrPost ({
+		url: 'process_guide.php?m=emailalertsend',
+		form: 'emailalert',
+		load: function (data) {
+			alert(data);
+			dijit.byId('dlg').hide();
+		},
+		error: function (error) {
+			alert("Error #1251: " + error);
+		}
+	});
+}
+
+function toggleRecipList(val) {
+	if (val) {
+		document.getElementById("recip_link").style.display = 'none';
+		document.getElementById("recip_list").style.display = 'block';
+	}
+	else {
+		document.getElementById("recip_link").style.display = 'block';
+		document.getElementById("recip_list").style.display = 'none';		
+	}
+}
+
+function saveGListSettings(bid) {
+	changeButtonDiv();
+	dojo.xhrPost ({
+		url: 'links.php?m=glist&op=save&pid='+myPID+'&iid='+myIID+'&bid='+bid,       
+		form: 'glistform',
+		load: function (data) {
+			dijit.byId('dlg').hide();
+			reloadBox(myIID,myPID,mySID,bid);
+		},
+		error: function (error) {	alert("Error #3411: " + error); }
+	});
+}
+
+function toggleGListOptions() {
+	// If additional options are added to the form, the indices should be updated here 
+	// to reflect the position of the associated radio button, i.e. "Guides from a Subject" is the 5th radio
+	// button and is associated with the "soptions" drop-down.
+	var opts = {
+		5 : "soptions",
+		6 : "moptions",
+		7 : "goptions"
+	}
+	var rad_elt, drop_elt;
+	
+	for ( opt in opts ) {
+		rad_elt = document.glistform.type[opt];
+		drop_elt = document.getElementById(opts[opt]);
+		
+		if ( rad_elt != null && drop_elt != null ) {
+			if ( rad_elt.checked ) {
+				drop_elt.style.display = "block"; 
+			} else { 
+				drop_elt.style.display = "none"; 
+			}
+		}
+	}
+}
+
+function processMOptionSelection(pid) {
+	var pidlist = document.glistform.pidlist.value;
+	
+	if (pid != 0) {
+		if (pidlist == "") { pidlist = pid; }
+		else {
+			var pidarray = new Array();
+			pidarray = pidlist.split(",");
+			var found = false;
+			var newlist = "";
+			for (i=0;i<pidarray.length;i++) {
+				if (pidarray[i] == pid) {
+					found = true;
+				}
+				else {
+					if (newlist != "") { newlist = newlist + ","; }
+					newlist = newlist + pidarray[i];
+				}
+			}
+			if (found == false) {
+				if (newlist == "") { newlist = pid; }
+				else { newlist = newlist + "," + pid; }
+			}
+			pidlist = newlist;
+		}
+	}
+	
+	//make sure the new pidlist value does not exceed the field length, since that can cause issues
+	if (pidlist.length > 500) {
+		alert("You have already selected the maximum number of guides allowed in this box, so your new selection could not be saved.");
+		return false;	
+	}
+	
+	document.glistform.pidlist.value = pidlist;
+	dojo.xhrGet ({
+		url: 'process_guide.php?m=guidenamesbyid&pidlist='+pidlist,		
+		load: function (data) { dojo.byId('moption_guide_list').innerHTML = data; },
+		error: function (error) {alert("Error: " + error);},
+		preventCache: true
+	});
+}
+
+function saveFeedbackSettings(bid) {
+	dojo.xhrPost ({
+		url: 'links.php?m=feedback&op=save&bid='+bid,
+		form: 'feedback_settings',
+		load: function (data) {
+			if (data == 1) { dijit.byId('dlg').hide(); }
+			else { alert("Error #783 when trying to save your settings; please try again!"); }
+		},
+		error: function (error) { alert("Error #784: " + error); }
+	});
+	return false;	
+}
+
+function saveProfileSettings(bid) {
+	dojo.xhrPost ({
+		url: 'links.php?m=profile&op=save&bid='+bid,
+		form: 'profile_settings',
+		load: function (data) {
+			if (data == 1) { reloadBox(myIID,myPID,mySID,bid,myboxshape); dijit.byId('dlg').hide(); }
+			else { alert("Error #283 when trying to save your settings; please try again!"); }
+		},
+		error: function (error) { alert("Error #284: " + error); }
+	});
+	return false;	
+}
+
+function setLibCalScheduler(box, lciid) {
+	if (lciid == 0) {
+		dojo.byId('libcal_select').innerHTML = 'It appears your library has not yet signed up for the LibCal service. For more information about LibCal please visit <a href="http://springshare.com/libcal" target="_blank">our website</a> or <a href="mailto:sales@springshare.com">send us an email</a>.'; 
+		box.checked = false;
+	}
+	else {
+		if (box.checked) { var act = 'set'; }
+		else { var act = 'rem'; }
+
+		dojo.xhrGet ({
+			url: '/process_account.php?m=libcal_set_scheduler&lciid=' + lciid + '&action=' + act,
+			load: function (data) {
+				dojo.byId('libcal_select').innerHTML = data; 
+			},
+			error: function (error) { alert("Error: " + error); },
+			preventCache: true
+		});
+	}
+	return false;
+}
+
+function setLibChatWidget(box, laiid) {
+	if (laiid == 0) {
+		dojo.byId('libcal_select').innerHTML = 'It appears your library has not yet signed up for the LibAnswers service. For more information about LibAnswers please visit <a href="http://springshare.com/libanswers" target="_blank">our website</a> or <a href="mailto:sales@springshare.com">send us an email</a>.'; 
+		box.checked = false;
+	}
+	else {
+		if (box.checked) { var act = 'set'; }
+		else { var act = 'rem'; }
+
+		dojo.xhrGet ({
+			url: '/process_account.php?m=libchat_set_widget&laiid=' + laiid + '&action=' + act,
+			load: function (data) { dojo.byId('libchat_select').innerHTML = data; },
+			error: function (error) { alert("Error: " + error); },
+			preventCache: true
+		});
+	}
+	return false;	
+}
+
+//common validation function; when this is changed be sure to update the function in lg.js as well
+function validateRegEx(val, kind, allowempty) {	
+	val = dojo.string.trim(val);
+
+	if ((val == '') && (allowempty == true)) { return true; }
+	
+	switch(kind) {
+		case 'email':
+		  	return val.match(/^(['a-zA-Z0-9_\.\-])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,6})+$/i);
+		  	break;
+
+		case 'friendly_url':
+			return val.match(/^[a-zA-Z0-9_\/-]+$/g);
+			break;	
+		
+		case 'notempty':
+			return (val != '');
+			break;
+		
+		case 'url':
+		  	return val.match(/^(rtsp|ftp|https?):\/\//i);
+		  	break;
+		 
+		case 'url2':
+			return val.match(/^(rtsp|mailto|ftp|https?):/i);
+			break;
+		
+		case 'url3':
+			return val.match(/^$|^https?:\/\/.+/ig);
+			break;
+
+		case 'pass_length':
+			return (val.length > 7);
+			break;
+		
+		case 'pass_complexity':
+			return (!val.match(/\s/) && val.match(/[^a-zA-Z]+/));
+			break;
+		
+		case 'pass_all':
+			return (validateRegEx(val, 'pass_length', allowempty) && validateRegEx(val, 'pass_complexity', allowempty));
+			break;
+
+		default:
+		  return false;
+	}
+}
+
+/* function to check IE version; returns 0 for non-IE browsers */
+function versionIE() {
+	if (navigator.appVersion.indexOf("MSIE") != -1) { return parseFloat(navigator.appVersion.split("MSIE")[1]); }
+	else { return 0; }
+}
+//========================================================================
+//  From rss_box.js - duplicated from lgpublic.js for now.
+//========================================================================
+//====================================================
+// Google RSS
+//====================================================
+function outputFeed(config) {
+    var feed_url = ( config.proxyaccess == 1 ? config.proxyurl + config.url : config.url );
+    var feed = new google.feeds.Feed(feed_url);
+    
+    feed.includeHistoricalEntries();
+    feed.setNumEntries(config.num_items);
+    
+    feed.load(function(result) {
+        if (!result.error) {
+            var container = document.getElementById("rss_content_" + config.content_id + "_" + config.box_id);
+            
+            // Clear div.
+            container.innerHTML = "";
+            //alert(result.feed.entries.length);
+            var feed_len = ( result.feed.entries.length >= config.num_items ? config.num_items : result.feed.entries.length );
+            
+            if ( feed_len > 0 ) {
+                var ul_item = document.createElement("ul");
+                
+                ul_item.style.marginTop = "0px";
+                ul_item.style.marginBottom = "0px";
+                ul_item.style.marginLeft = "0px";
+                ul_item.style.paddingLeft = "16px";
+                
+                // Display feed items.
+                for (var i = 0; i < feed_len; i++) {
+                    var entry = result.feed.entries[i];
+                    var item_div = document.createElement("div");
+                    var item_title_div = document.createElement("div");
+					item_title_div.className = "rsspod_title";
+                    var item_desc_div = document.createElement("div");
+					item_desc_div.className = "rsspod_description";
+                    var li_item = document.createElement("li");
+                    var feedLink = new FeedLink({
+                                            url: entry.link,
+                                            text: entry.title,
+                                            api_load: config.api_load,
+                                            descpos: config.descpos,
+                                            description: entry.contentSnippet,
+                                            proxylinks: config.proxylinks,
+                                            proxyurl: config.proxyurl
+                                        });
+                    //debugger;
+                    li_item.style.paddingBottom = "5px";
+                    
+                    item_title_div.appendChild(feedLink.build());
+                    item_div.appendChild(item_title_div);
+                    
+                    // If not on mobile and display desc below title is set, add description below title.
+                    if ( config.is_mobile == 0 && config.descpos == 1 ) {
+                        item_desc_div.innerHTML = "<div style=\"padding-top: 5px;\">" + entry.content + "</div><div style=\"clear:both;\"></div>";
+                        item_div.appendChild(item_desc_div);
+                    }
+                    
+                    li_item.appendChild(item_div);
+                    ul_item.appendChild(li_item);
+                }
+                container.appendChild(ul_item);
+                
+                // If there is a web site link associated with the feed display the icon & link.
+                if ( result.feed.link ) {
+                    var view_site_div = document.createElement("div");
+                    view_site_div.innerHTML = '<div class="bi_links">&nbsp;</div>&nbsp;<a href="' + result.feed.link + '" id="rssWebsiteLink" target="_blank">' + lang_mgr_box_rss_view_website + '</a>';
+                    
+                    var view_placeholder = document.getElementById("rss_view_website_" + config.content_id);
+                    view_placeholder.innerHTML = '';
+                    view_placeholder.appendChild(view_site_div);
+                }
+            } else {
+                var item_div = document.createElement("div");
+                
+                item_div.innerHTML = '<div style="padding-top: 5px;">' + lang_mgr_global_no_results + '</div>';
+                
+                container.appendChild(item_div);
+                
+            }
+        }
+    });
+}
+//====================================================
+function FeedLink(config) {
+    this.config = config;
+    this.url = config.url;
+    this.text = config.text;
+    this.descpos = config.descpos;
+    this.description = config.description;
+    this.onmouseover = null;
+    this.anchor = document.createElement("a");
+}
+//====================================================
+FeedLink.prototype.build = function() {
+    this.anchor.href = ( this.config.proxylinks == 1 ? this.config.proxyurl + this.url : this.url );
+    this.anchor.target = "_blank";
+    text_node = document.createTextNode(this.text);
+    this.anchor.appendChild(text_node);
+    
+    var mo_config = { content: this.description, titleid: 5, boxwidth: 400 };
+    
+    // Add pop-up description.
+    if ( this.config.api_load == 0 && this.descpos == 0 && this.description != "" ) {
+        this.anchor.onmouseout = hideLinkDesc;
+        this.anchor.onmouseover = function (e) {
+                e = e || window.event;
+                var content = mo_config.content;
+                var titleid = mo_config.titleid;
+                var content = mo_config.content;
+                var boxwidth = mo_config.boxwidth;
+                var pointerobj=document.all? document.all["tippointer"] : document.getElementById? document.getElementById("tippointer") : ""
+                var cleancontent = unescape(content);
+                var objName = "descpopup";
+                var objNameTitle = "descpopuptitle";
+                var objNameHtml = "descpopupcontent";
+                var tempX;
+                var tempY;
+                var pointX;
+                var pointY;
+                var lt = "<h6>" + lang_mgr_global_summary + "</h6>";
+
+                document.getElementById(objNameTitle).innerHTML=lt;
+
+                cursorXY(e);
+                cursorX +=10;
+                cursorY +=8;
+                
+                tempX = cursorX-14;
+                tempY = cursorY+21;
+                tempX = tempX+"px";
+                tempY = tempY+"px";
+                cursorX = cursorX+"px";
+                cursorY = cursorY+"px";
+                
+                document.getElementById(objName).style.width = boxwidth+"px";		
+                document.getElementById(objName).style.top = tempY;
+                document.getElementById(objName).style.left = tempX;				
+                    
+                document.getElementById(objNameHtml).innerHTML = cleancontent;
+                    
+                pointerobj.style.left = cursorX;				
+                pointerobj.style.top = cursorY;
+                pointerobj.style.visibility="visible"
+                document.getElementById(objName).style.visibility = "visible";
+
+                // LEAVE FOR POSSIBLE FUTURE INCLUSION - PROBLEM NOW IS THAT IT FLICKERS IN IE6
+                //	dojo.lfx.fadeShow(pointerobj, 700).play(); 
+                //	dojo.lfx.fadeShow(document.getElementById(objName), 700).play();
+                return false;
+            }
+    }
+    return this.anchor;
+}
+//========================================================================
+function element_hide(elt) {
+	if (elt) { elt.style.display = 'none'; }	
+}
+//========================================================================
+function element_show(elt) {
+	if (elt) { elt.style.display = 'block'; }
+}
+//========================================================================
+function save_banner_selection(file_elt, radio_elt) {
+	var val = '';	
+	for (var i=0; i<radio_elt.length; i++) {
+		if (radio_elt[i].checked) {
+			val = radio_elt[i].value;
+			if (val == 2) {
+				var ext = file_elt.value.substr( (file_elt.value.lastIndexOf('.') +1) );
+				if ((ext != "jpg") && (ext != "jpeg") && (ext != "gif") && (ext != "png")) {
+					alert("Banner images must be of the format JPG/JPEG, GIF or PNG; please select another file and try again.");
+					return false;
+				}
+			}
+		}
+	}
+	//still here, call the processing script
+	dojo.io.iframe.send({
+		url: "/process_file.php?v=" + file_elt.name + "&option=" + val,
+		method: "post",
+		handleAs: "text",
+		form: dojo.byId(file_elt.form),
+		load: function(data){
+			if (data == "lg") { window.location.reload(true); }
+			else { alert("There was an error uploading the file. Please reload the page and try again!"); }
+		}
+	});
+}
+//========================================================================

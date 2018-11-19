@@ -1,0 +1,90 @@
+//this is a shared JS include that contains code that is common to content.php and aecontent.php
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//page and box comment functions
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+function listComments(itemid,t,admin,forceopen) {
+	var elt = document.getElementById('commentslist'+t+itemid);	
+	
+	if ((elt.style.display == "block") && (forceopen == false)) {
+		elt.style.display = "none";	
+	}
+	else {
+		dojo.xhrGet ({
+			url: '/comments.php?mode=list&t='+t+'&id='+itemid+'&a='+admin,	
+			load: function (data) {
+				elt.style.display = "block";
+				elt.innerHTML = data; 
+			},
+			error: function (error) { alert("Error 402: " + error); },
+			preventCache: true
+		});
+	}
+	
+	return false;
+}
+function newComment() {     
+	if (checkBlankField(document.forms["newcomment"].cname,"name") == 0) {return false;}
+	if (checkBlankField(document.forms["newcomment"].csubject,"post subject") == 0) {return false;}
+	if (checkBlankField(document.forms["newcomment"].cpost,"post") == 0) {return false;}
+	
+	var t = document.forms["newcomment"].t.value;
+	var id = document.forms["newcomment"].id.value;
+	var mode = document.forms["newcomment"].mode.value;
+	
+	//if we are still here, prompt the user to click OK, since that might cut down on some automated spam
+	if (confirm('Once posted, your comment and email (if provided) will be visible to everyone who visits this page and you will not have the ability to delete the message.  Are you sure you wish to post your comment?') == false) { return false; }
+
+	dojo.xhrPost ({
+		url: '/comments.php?mode=new',		
+		form: "newcomment",
+		load: function (data) {
+			dijit.byId('dlg').hide();
+			if (data == "posted") { listComments(id,t,mode,true); }
+			else if (data == "pending") { alert("Thank you for your comment - it will be visible on the page once approved by the owner of this page."); }
+			else { alert("An error occurred while posting your comment - please try again."); }
+		},
+		error: function (error) { alert("Error #112: " + error);}
+	});
+}	
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//discussion board functions used on content and aecontent
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+function submitForumPost() {    
+	if (checkBlankField(document.forms['fpost'].name, lang_mgr_global_your_name) == 0) {return false;}
+	if (checkBlankField(document.forms['fpost'].email, lang_mgr_global_your_email) == 0) {return false;}
+	if (document.forms['fpost'].parent.value == "0") { if (checkBlankField(document.forms['fpost'].title, lang_mgr_forum_title) == 0) {return false;} }
+	if (checkBlankField(document.forms['fpost'].message, lang_mgr_forum_message) == 0) {return false;}
+
+	document.getElementById("forumbtns").innerHTML = '<img alt="Loading" src="http://lgimages.s3.amazonaws.com/loading_dots.gif" align="top" />';
+
+	dojo.xhrPost ({
+		url: '/process_forum.php?mode=new',		
+		form: 'fpost',
+		load: function (data) {
+			if (document.fpost.approved.value == "0") { alert(lang_mgr_forum_pending_approval_js); }
+			window.location.href=window.location.href;
+		},
+		error: function (error) { alert("Error #712: " + error); }
+	});
+}
+function toggleForumPost() {
+	if (document.getElementById("forumpostdiv").style.display == "none") {
+		document.getElementById("forumpostdiv").style.display = "block";
+		document.getElementById("forumpostlink").style.display = "none";
+	}
+	else {
+		document.getElementById("forumpostdiv").style.display = "none";
+		document.getElementById("forumpostlink").style.display = "inline";
+	}
+	return false;
+}
+function openSurveyWindow(url, name, props) {
+	var win = window.open(url, name, props);
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
